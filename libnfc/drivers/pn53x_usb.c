@@ -282,7 +282,7 @@ pn53x_usb_scan(const nfc_context *context, nfc_connstring connstrings[], const s
 		devices[i].name = pn53x_usb_supported_devices[i].name;
 		devices[i].max_packet_size = pn53x_usb_supported_devices[i].uiMaxPacketSize;
 	}
-	return usbbus_usb_scan((char **) connstrings, connstrings_len, devices, num_pn53x_usb_supported_devices, PN53X_USB_DRIVER_NAME);
+	return usbbus_usb_scan(connstrings, connstrings_len, devices, num_pn53x_usb_supported_devices, PN53X_USB_DRIVER_NAME);
 }
 
 bool
@@ -341,10 +341,7 @@ pn53x_usb_open(const nfc_context *context, const nfc_connstring connstring) {
 		.possibly_corrupted_usbdesc = false,
 	};
 
-	usbbus_get_device(dev_addres, data.dev, data.pudh);
-
-
-
+	usbbus_get_device(dev_addres, &data.dev, &data.pudh);
 
 	// Retrieve end points, using hardcoded defaults if available
 	// or using the descriptors otherwise.
@@ -370,8 +367,10 @@ pn53x_usb_open(const nfc_context *context, const nfc_connstring connstring) {
 			        usbbus_get_product_id(data.dev),
 			        data.configIdx);
 		}
-		libusb_close(data.pudh);
 		// we failed to use the specified device
+		usbbus_close(data.dev, data.pudh);
+		free(dev_address_str);
+		free(config_idx_str);
 		return NULL;
 	}
 
@@ -382,8 +381,10 @@ pn53x_usb_open(const nfc_context *context, const nfc_connstring connstring) {
 		        NFC_LOG_PRIORITY_ERROR,
 		        "Unable to claim USB interface (%s)",
 		        libusb_strerror(res));
-		libusb_close(data.pudh);
 		// we failed to use the specified device
+		usbbus_close(data.dev, data.pudh);
+		free(dev_address_str);
+		free(config_idx_str);
 		return NULL;
 	}
 	data.model = pn53x_usb_get_device_model(usbbus_get_vendor_id(data.dev), usbbus_get_product_id(data.dev));
@@ -391,6 +392,9 @@ pn53x_usb_open(const nfc_context *context, const nfc_connstring connstring) {
 	pnd = nfc_device_new(context, connstring);
 	if (!pnd) {
 		perror("malloc");
+		usbbus_close(data.dev, data.pudh);
+		free(dev_address_str);
+		free(config_idx_str);
 		return NULL;
 	}
 	pn53x_usb_get_usb_device_name(data.dev, data.pudh, pnd->name, sizeof(pnd->name));
@@ -399,6 +403,9 @@ pn53x_usb_open(const nfc_context *context, const nfc_connstring connstring) {
 	if (!pnd->driver_data) {
 		perror("malloc");
 		nfc_device_free(pnd);
+		usbbus_close(data.dev, data.pudh);
+		free(dev_address_str);
+		free(config_idx_str);
 		return NULL;
 	}
 	*DRIVER_DATA(pnd) = data;
@@ -407,6 +414,9 @@ pn53x_usb_open(const nfc_context *context, const nfc_connstring connstring) {
 	if (pn53x_data_new(pnd, &pn53x_usb_io) == NULL) {
 		perror("malloc");
 		nfc_device_free(pnd);
+		usbbus_close(data.dev, data.pudh);
+		free(dev_address_str);
+		free(config_idx_str);
 		return NULL;
 	}
 
@@ -436,8 +446,10 @@ pn53x_usb_open(const nfc_context *context, const nfc_connstring connstring) {
 	// HACK2: Then send a GetFirmware command to resync USB toggle bit between host & device
 	// in case host used set_configuration and expects the device to have reset its toggle bit, which PN53x doesn't do
 	if (pn53x_usb_init(pnd) < 0) {
-		libusb_close(data.pudh);
 		nfc_device_free(pnd);
+		usbbus_close(data.dev, data.pudh);
+		free(dev_address_str);
+		free(config_idx_str);
 		return NULL;
 	}
 	DRIVER_DATA(pnd)->abort_flag = false;
@@ -460,7 +472,8 @@ pn53x_usb_close(nfc_device *pnd) {
 
 	pn53x_idle(pnd);
 
-	libusb_close(DRIVER_DATA(pnd)->pudh);
+	usbbus_close(DRIVER_DATA(pnd)->dev, DRIVER_DATA(pnd)->pudh);
+
 	pn53x_data_free(pnd);
 	nfc_device_free(pnd);
 }

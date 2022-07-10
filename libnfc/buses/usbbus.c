@@ -84,10 +84,10 @@ int usbbus_prepare() {
 }
 
 
-TODO kenspeckle
-beim ende vom programm libusb dinge wieder freigeben
+//TODO kenspeckle
+//beim ende vom programm libusb dinge wieder freigeben
 
-size_t usbbus_usb_scan(char **connstrings,
+size_t usbbus_usb_scan(nfc_connstring connstrings[],
                        const size_t connstrings_len,
                        struct usbbus_device *nfc_usb_devices,
                        const size_t num_nfc_usb_devices,
@@ -132,6 +132,7 @@ size_t usbbus_usb_scan(char **connstrings,
 						break;
 					}
 					if (!found_valid_config) {
+						libusb_unref_device(dev);
 						continue;
 					}
 				}
@@ -139,6 +140,7 @@ size_t usbbus_usb_scan(char **connstrings,
 				libusb_device_handle *udev;
 				int res = libusb_open(dev, &udev);
 				if (res < 0 && udev == NULL) {
+					libusb_unref_device(dev);
 					continue;
 				}
 
@@ -151,6 +153,7 @@ size_t usbbus_usb_scan(char **connstrings,
 					        "Unable to set USB configuration (%s)",
 					        libusb_strerror(res));
 					libusb_close(udev);
+					libusb_unref_device(dev);
 					// we failed to use the device
 					continue;
 				}
@@ -160,25 +163,33 @@ size_t usbbus_usb_scan(char **connstrings,
 				libusb_close(udev);
 
 				uint8_t dev_address = libusb_get_device_address(dev);
+				printf("%s:%03d:%03d",
+				       "Test",
+				       dev_address,
+				       (int) valid_config_idx);
 				size_t size_new_str = snprintf(
 					connstrings[device_found],
-					sizeof(nfc_connstring),
+					sizeof(connstrings[device_found]),
 					"%s:%03d:%03d",
 					usb_driver_name,
-					dev_address, (int) valid_config_idx);
+					dev_address,
+					(int) valid_config_idx);
+
 				if (size_new_str >= (int) sizeof(nfc_connstring)) {
 					// truncation occurred, skipping that one
+					libusb_unref_device(dev);
 					continue;
 				}
 				device_found++;
 				// Test if we reach the maximum "wanted" devices
 				if (device_found == connstrings_len) {
+					libusb_free_device_list(devices, 0);
 					return device_found;
 				}
 			}
 		}
 	}
-
+	libusb_free_device_list(devices, 0);
 	return device_found;
 }
 
@@ -273,15 +284,15 @@ void usbbus_get_usb_device_name(struct libusb_device *dev, libusb_device_handle 
 }
 
 
-void usbbus_get_device(uint8_t dev_address, struct libusb_device * dev, struct libusb_device_handle * dev_handle) {
+void usbbus_get_device(uint8_t dev_address, struct libusb_device ** dev, struct libusb_device_handle ** dev_handle) {
 	struct libusb_device ** device_list;
 	ssize_t num_devices = libusb_get_device_list(ctx, &device_list);
 	for (size_t i = 0; i < num_devices; i++) {
 		if (libusb_get_device_address(device_list[i]) != dev_address) {
 			continue;
 		} else {
-			dev = device_list[i];
-			int res = libusb_open(dev, &dev_handle);
+			*dev = device_list[i];
+			int res = libusb_open(*dev, dev_handle);
 			if (res != 0 || dev_handle == NULL) {
 				log_put(LOG_GROUP,LOG_CATEGORY,NFC_LOG_PRIORITY_ERROR,
 				       "Unable to open libusb device (%s)",libusb_strerror(res));
@@ -293,9 +304,14 @@ void usbbus_get_device(uint8_t dev_address, struct libusb_device * dev, struct l
 	// libusb works with a reference counter which is set to 1 for each device when calling libusb_get_device_list and increased
 	// by libusb_open. Thus we decrease the counter by 1 for all devices and only the "real" device will survive
 	libusb_free_device_list(device_list, num_devices);
-
 }
 
+
+void usbbus_close(struct libusb_device * dev, struct libusb_device_handle * dev_handle) {
+	libusb_close(dev_handle);
+	libusb_unref_device(dev);
+	libusb_exit(ctx);
+}
 
 uint16_t usbbus_get_vendor_id(struct libusb_device *dev) {
 	struct libusb_device_descriptor descriptor;

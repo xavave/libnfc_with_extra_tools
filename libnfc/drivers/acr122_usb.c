@@ -297,7 +297,7 @@ acr122_usb_scan(const nfc_context *context, nfc_connstring connstrings[], const 
 		devices[i].name = acr122_usb_supported_devices[i].name;
 		devices[i].max_packet_size = acr122_usb_supported_devices[i].max_packet_size;
 	}
-	return usbbus_usb_scan((char **) connstrings, connstrings_len, devices, num_acr122_usb_supported_device, ACR122_USB_DRIVER_NAME);
+	return usbbus_usb_scan(connstrings, connstrings_len, devices, num_acr122_usb_supported_device, ACR122_USB_DRIVER_NAME);
 }
 
 
@@ -337,6 +337,8 @@ acr122_usb_open(const nfc_context *context, const nfc_connstring connstring) {
 	        connstring_decode_level,
 	        connstring);
 	if (connstring_decode_level < 2) {
+		free(dev_address_str);
+		free(config_idx_str);
 		return NULL;
 	}
 
@@ -352,7 +354,8 @@ acr122_usb_open(const nfc_context *context, const nfc_connstring connstring) {
 		.uiEndPointIn = 0,
 		.uiEndPointOut = 0,
 	};
-	usbbus_get_device(dev_addres, data.dev, data.pudh);
+
+	usbbus_get_device(dev_addres, &data.dev, &data.pudh);
 	// Reset device
 	libusb_reset_device(data.pudh);
 
@@ -368,6 +371,8 @@ acr122_usb_open(const nfc_context *context, const nfc_connstring connstring) {
 		        libusb_strerror(res));
 		libusb_close(data.pudh);
 		// we failed to use the specified device
+		free(dev_address_str);
+		free(config_idx_str);
 		return NULL;
 	}
 
@@ -383,6 +388,8 @@ acr122_usb_open(const nfc_context *context, const nfc_connstring connstring) {
 			        libusb_strerror(res));
 			libusb_close(data.pudh);
 			// we failed to use the specified device
+			free(dev_address_str);
+			free(config_idx_str);
 			return NULL;
 		}
 	}
@@ -391,6 +398,8 @@ acr122_usb_open(const nfc_context *context, const nfc_connstring connstring) {
 	pnd = nfc_device_new(context, connstring);
 	if (!pnd) {
 		perror("malloc");
+		free(dev_address_str);
+		free(config_idx_str);
 		return NULL;
 	}
 	acr122_usb_get_usb_device_name(data.dev, data.pudh, pnd->name, sizeof(pnd->name));
@@ -399,6 +408,8 @@ acr122_usb_open(const nfc_context *context, const nfc_connstring connstring) {
 	if (!pnd->driver_data) {
 		perror("malloc");
 		nfc_device_free(pnd);
+		free(dev_address_str);
+		free(config_idx_str);
 		return NULL;
 	}
 	*DRIVER_DATA(pnd) = data;
@@ -407,6 +418,8 @@ acr122_usb_open(const nfc_context *context, const nfc_connstring connstring) {
 	if (pn53x_data_new(pnd, &acr122_usb_io) == NULL) {
 		perror("malloc");
 		nfc_device_free(pnd);
+		free(dev_address_str);
+		free(config_idx_str);
 		return NULL;
 	}
 
@@ -418,10 +431,14 @@ acr122_usb_open(const nfc_context *context, const nfc_connstring connstring) {
 	if (acr122_usb_init(pnd) < 0) {
 		libusb_close(data.pudh);
 		nfc_device_free(pnd);
+		free(dev_address_str);
+		free(config_idx_str);
 		return NULL;
 	}
 	DRIVER_DATA(pnd)->abort_flag = false;
 
+	free(dev_address_str);
+	free(config_idx_str);
 	return pnd;
 }
 
@@ -439,7 +456,8 @@ acr122_usb_close(nfc_device *pnd) {
 		        libusb_strerror(res));
 	}
 
-	libusb_close(DRIVER_DATA(pnd)->pudh);
+	usbbus_close(DRIVER_DATA(pnd)->dev, DRIVER_DATA(pnd)->pudh);
+
 	pn53x_data_free(pnd);
 	nfc_device_free(pnd);
 }
