@@ -279,16 +279,18 @@ pn53x_usb_get_end_points_default(struct pn53x_usb_data *data)
 int pn53x_usb_ack(nfc_device *pnd);
 
 static size_t
-pn53x_usb_scan(const nfc_context *context, nfc_connstring connstrings[], const size_t connstrings_len)
-{
-  struct usbbus_device devices[num_pn53x_usb_supported_devices];
-  for (size_t i = 0; i < num_pn53x_usb_supported_devices; i++) {
-    devices[i].product_id = pn53x_usb_supported_devices[i].product_id;
-    devices[i].vendor_id = pn53x_usb_supported_devices[i].vendor_id;
-    devices[i].name = pn53x_usb_supported_devices[i].name;
-    devices[i].max_packet_size = pn53x_usb_supported_devices[i].uiMaxPacketSize;
-  }
-  return usbbus_usb_scan(connstrings, connstrings_len, devices, num_pn53x_usb_supported_devices, PN53X_USB_DRIVER_NAME);
+pn53x_usb_scan(const nfc_context* context, nfc_connstring connstrings[], const size_t connstrings_len)
+{//fix for compiling on Windows VS2022:
+    struct usbbus_device* devices = (struct usbbus_device*)malloc(num_pn53x_usb_supported_devices * sizeof(struct usbbus_device));
+    for (size_t i = 0; i < num_pn53x_usb_supported_devices; i++) {
+        devices[i].product_id = pn53x_usb_supported_devices[i].product_id;
+        devices[i].vendor_id = pn53x_usb_supported_devices[i].vendor_id;
+        devices[i].name = pn53x_usb_supported_devices[i].name;
+        devices[i].max_packet_size = pn53x_usb_supported_devices[i].uiMaxPacketSize;
+    }
+    size_t res = usbbus_usb_scan(connstrings, connstrings_len, devices, num_pn53x_usb_supported_devices, PN53X_USB_DRIVER_NAME);
+    free(devices);
+    return res;
 }
 
 bool

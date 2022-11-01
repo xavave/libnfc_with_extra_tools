@@ -290,17 +290,19 @@ const size_t
 num_acr122_usb_supported_device = sizeof(acr122_usb_supported_devices) / sizeof(struct acr122_usb_supported_device);
 
 static size_t
-acr122_usb_scan(const nfc_context *context, nfc_connstring connstrings[], const size_t connstrings_len)
-{
-  (void) context;
-  struct usbbus_device devices[num_acr122_usb_supported_device];
-  for (size_t i = 0; i < num_acr122_usb_supported_device; i++) {
-    devices[i].product_id = acr122_usb_supported_devices[i].product_id;
-    devices[i].vendor_id = acr122_usb_supported_devices[i].vendor_id;
-    devices[i].name = acr122_usb_supported_devices[i].name;
-    devices[i].max_packet_size = acr122_usb_supported_devices[i].max_packet_size;
-  }
-  return usbbus_usb_scan(connstrings, connstrings_len, devices, num_acr122_usb_supported_device, ACR122_USB_DRIVER_NAME);
+acr122_usb_scan(const nfc_context* context, nfc_connstring connstrings[], const size_t connstrings_len)
+{//fix for compiling on Windows VS2022:
+    (void)context;
+    struct usbbus_device* devices = (struct usbbus_device*)malloc(num_acr122_usb_supported_device * sizeof(struct usbbus_device));
+    for (size_t i = 0; i < num_acr122_usb_supported_device; i++) {
+        devices[i].product_id = acr122_usb_supported_devices[i].product_id;
+        devices[i].vendor_id = acr122_usb_supported_devices[i].vendor_id;
+        devices[i].name = acr122_usb_supported_devices[i].name;
+        devices[i].max_packet_size = acr122_usb_supported_devices[i].max_packet_size;
+    }
+    size_t res = usbbus_usb_scan(connstrings, connstrings_len, devices, num_acr122_usb_supported_device, ACR122_USB_DRIVER_NAME);
+    free(devices);
+    return res;
 }
 
 

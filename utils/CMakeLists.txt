@@ -8,6 +8,7 @@ SET(UTILS-SOURCES
   nfc-read-forum-tag3
   nfc-relay-picc
   nfc-scan-device
+  mfcuk
 )
 
 ADD_LIBRARY(nfcutils STATIC 
@@ -42,8 +43,11 @@ FOREACH(source ${UTILS-SOURCES})
       LIST(APPEND TARGETS ../contrib/win32/stdlib)
       INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32)
     ENDIF(${source} MATCHES "nfc-scan-device")
-    IF(${source} MATCHES "nfc-read-forum-tag3")
+    IF((${source} MATCHES "nfc-read-forum-tag3") OR (${source} MATCHES "mfcuk"))
       LIST(APPEND TARGETS ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/getopt.c)
+    ENDIF()
+      IF(${source} MATCHES "mfcuk")
+      LIST(APPEND TARGETS mfcuk_mifare crypto1 crapto1 mfcuk_utils mfcuk_finger mifare)
     ENDIF()
   ENDIF(WIN32)
 
