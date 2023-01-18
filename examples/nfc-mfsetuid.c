@@ -63,6 +63,8 @@
 #define SAK_FLAG_ATS_SUPPORTED 0x20
 
 #define MAX_FRAME_LEN 264
+#define MAX_DEVICE_COUNT 16
+#define MAX_TARGET_COUNT 16
 
 static uint8_t abtRx[MAX_FRAME_LEN];
 static int szRxBits;
@@ -200,9 +202,32 @@ main(int argc, char *argv[])
     ERR("Unable to init libnfc (malloc)");
     exit(EXIT_FAILURE);
   }
+  // Display libnfc version
+  printf("%s uses libnfc %s\n",argv[0], nfc_version());
 
   // Try to open the NFC reader
-  pnd = nfc_open(context, NULL);
+
+  nfc_connstring connstrings[MAX_DEVICE_COUNT];
+  size_t szDeviceFound = nfc_list_devices(context, connstrings, MAX_DEVICE_COUNT);
+
+  if (szDeviceFound == 0) {
+      printf("No NFC device found.\n");
+  }
+ 
+  for (i = 0; i < szDeviceFound; i++) {
+      nfc_target ant[MAX_TARGET_COUNT];
+      pnd = nfc_open(context, connstrings[i]);
+      if (pnd == NULL) {
+          printf("Unable to open NFC device: %s\n", connstrings[i]);
+          continue;
+      }
+      else
+      {
+          printf("NFC device: %s found\n", nfc_device_get_name(pnd));
+          break;
+      }
+
+  }
 
   if (pnd == NULL) {
     ERR("Error opening NFC reader");

@@ -101,7 +101,8 @@ static const nfc_modulation nmMifare = {
 static size_t num_keys = sizeof(keys) / 6;
 
 #define MAX_FRAME_LEN 264
-
+#define MAX_DEVICE_COUNT 16
+#define MAX_TARGET_COUNT 16
 static uint8_t abtRx[MAX_FRAME_LEN];
 static int szRxBits;
 
@@ -652,12 +653,36 @@ main(int argc, const char *argv[])
     exit(EXIT_FAILURE);
   }
 
-// Try to open the NFC reader
-  pnd = nfc_open(context, NULL);
+  // Try to open the NFC reader
+  // Display libnfc version
+  printf("%s uses libnfc %s\n", argv[0], nfc_version());
+
+  nfc_connstring connstrings[MAX_DEVICE_COUNT];
+  size_t szDeviceFound = nfc_list_devices(context, connstrings, MAX_DEVICE_COUNT);
+
+  if (szDeviceFound == 0) {
+      printf("No NFC device found.\n");
+  }
+
+  for (int i = 0; i < szDeviceFound; i++) {
+      nfc_target ant[MAX_TARGET_COUNT];
+      pnd = nfc_open(context, connstrings[i]);
+      if (pnd == NULL) {
+          printf("Unable to open NFC device: %s\n", connstrings[i]);
+          continue;
+      }
+      else
+      {
+          printf("NFC device: %s found\n", nfc_device_get_name(pnd));
+          break;
+      }
+
+  }
+
   if (pnd == NULL) {
-    ERR("Error opening NFC reader");
-    nfc_exit(context);
-    exit(EXIT_FAILURE);
+      ERR("Error opening NFC reader");
+      nfc_exit(context);
+      exit(EXIT_FAILURE);
   }
 
   if (nfc_initiator_init(pnd) < 0) {
@@ -666,7 +691,7 @@ main(int argc, const char *argv[])
     nfc_exit(context);
     exit(EXIT_FAILURE);
   };
-
+  printf("NFC reader: %s opened\n", nfc_device_get_name(pnd));
   // Drop the field for a while, so can be reset
   if (nfc_device_set_property_bool(pnd, NP_ACTIVATE_FIELD, true) < 0) {
     nfc_perror(pnd, "nfc_device_set_property_bool activate field");

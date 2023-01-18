@@ -129,16 +129,16 @@ main(int argc, const char *argv[])
   }
 
 
-  /* Lazy way to open an NFC device */
-#if 0
-  pnd = nfc_open(context, NULL);
-#endif
-
-  /* Use connection string if specific device is wanted,
-   * i.e. PN532 UART device on /dev/ttyUSB1 */
-#if 0
-  pnd = nfc_open(context, "pn532_uart:/dev/ttyUSB1");
-#endif
+//  /* Lazy way to open an NFC device */
+//#if 0
+//  pnd = nfc_open(context, NULL);
+//#endif
+//
+//  /* Use connection string if specific device is wanted,
+//   * i.e. PN532 UART device on /dev/ttyUSB1 */
+//#if 0
+//  pnd = nfc_open(context, "pn532_uart:/dev/ttyUSB1");
+//#endif
 
   nfc_connstring connstrings[MAX_DEVICE_COUNT];
   size_t szDeviceFound = nfc_list_devices(context, connstrings, MAX_DEVICE_COUNT);
@@ -152,7 +152,7 @@ main(int argc, const char *argv[])
     pnd = nfc_open(context, connstrings[i]);
 
     if (pnd == NULL) {
-      ERR("Unable to open NFC device: %s", connstrings[i]);
+        printf("Unable to open NFC device: %s\n", connstrings[i]);
       continue;
     }
     if (nfc_initiator_init(pnd) < 0) {

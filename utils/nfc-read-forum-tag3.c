@@ -68,7 +68,8 @@
 
 static nfc_device *pnd;
 static nfc_context *context;
-
+#define MAX_DEVICE_COUNT 16
+#define MAX_TARGET_COUNT 16
 static void
 print_usage(char *progname)
 {
@@ -196,6 +197,8 @@ main(int argc, char *argv[])
   }
   FILE *message_stream = NULL;
   FILE *ndef_stream = NULL;
+  // Display libnfc version
+  printf("%s uses libnfc %s\n", argv[0], nfc_version());
 
   if ((strlen(ndef_output) == 1) && (ndef_output[0] == '-')) {
     message_stream = stderr;
@@ -215,13 +218,32 @@ main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  pnd = nfc_open(context, NULL);
+  nfc_connstring connstrings[MAX_DEVICE_COUNT];
+  size_t szDeviceFound = nfc_list_devices(context, connstrings, MAX_DEVICE_COUNT);
+
+  if (szDeviceFound == 0) {
+      printf("No NFC device found.\n");
+  }
+  int i;
+  for (i = 0; i < szDeviceFound; i++) {
+      nfc_target ant[MAX_TARGET_COUNT];
+      pnd = nfc_open(context, connstrings[i]);
+      if (pnd == NULL) {
+          printf("Unable to open NFC device: %s\n", connstrings[i]);
+          continue;
+      }
+      else
+      {
+          printf("NFC device: %s found\n", nfc_device_get_name(pnd));
+          break;
+      }
+
+  }
 
   if (pnd == NULL) {
-    ERR("Unable to open NFC device");
-    fclose(ndef_stream);
-    nfc_exit(context);
-    exit(EXIT_FAILURE);
+      ERR("Error opening NFC reader");
+      nfc_exit(context);
+      exit(EXIT_FAILURE);
   }
 
   if (!quiet) {
