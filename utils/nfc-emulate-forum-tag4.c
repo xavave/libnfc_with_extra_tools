@@ -7,6 +7,7 @@
  * Copyright (C) 2010-2012 Romain Tartière
  * Copyright (C) 2010-2013 Philippe Teuwen
  * Copyright (C) 2012-2013 Ludovic Rousseau
+ * See AUTHORS file for a more comprehensive list of contributors.
  * Additional contributors of this file:
  *
  * Redistribution and use in source and binary forms, with or without
@@ -86,6 +87,8 @@ static bool quiet_output = false;
 static int type4v = 2;
 
 #define SYMBOL_PARAM_fISO14443_4_PICC   0x20
+#define MAX_DEVICE_COUNT 16
+#define MAX_TARGET_COUNT 16
 
 typedef enum { NONE, CC_FILE, NDEF_FILE } file;
 
@@ -259,14 +262,21 @@ static int
 ndef_message_load(char *filename, struct nfcforum_tag4_ndef_data *tag_data)
 {
   struct stat sb;
+  FILE *F;
+  if (!(F = fopen(filename, "r"))) {
+    printf("File not found or not accessible '%s'\n", filename);
+    return -1;
+  }
   if (stat(filename, &sb) < 0) {
-    printf("file not found or not accessible '%s'", filename);
+    printf("File not found or not accessible '%s'\n", filename);
+    fclose(F);
     return -1;
   }
 
   /* Check file size */
   if (sb.st_size > 0xFFFF) {
-    printf("file size too large '%s'", filename);
+    printf("File size too large '%s'\n", filename);
+    fclose(F);
     return -1;
   }
 
@@ -275,14 +285,9 @@ ndef_message_load(char *filename, struct nfcforum_tag4_ndef_data *tag_data)
   tag_data->ndef_file[0] = (uint8_t)(sb.st_size >> 8);
   tag_data->ndef_file[1] = (uint8_t)(sb.st_size);
 
-  FILE *F;
-  if (!(F = fopen(filename, "r"))) {
-    printf("fopen (%s, \"r\")", filename);
-    return -1;
-  }
 
   if (1 != fread(tag_data->ndef_file + 2, sb.st_size, 1, F)) {
-    printf("Can't read from %s", filename);
+    printf("Can't read from %s\n", filename);
     fclose(F);
     return -1;
   }
@@ -296,12 +301,12 @@ ndef_message_save(char *filename, struct nfcforum_tag4_ndef_data *tag_data)
 {
   FILE *F;
   if (!(F = fopen(filename, "w"))) {
-    printf("fopen (%s, w)", filename);
+    printf("fopen (%s, w)\n", filename);
     return -1;
   }
 
   if (1 != fwrite(tag_data->ndef_file + 2, tag_data->ndef_file_len - 2, 1, F)) {
-    printf("fwrite (%d)", (int) tag_data->ndef_file_len - 2);
+    printf("fwrite (%d)\n", (int) tag_data->ndef_file_len - 2);
     fclose(F);
     return -1;
   }
@@ -385,7 +390,7 @@ main(int argc, char *argv[])
   // If some file is provided load it
   if (argc >= (2 + options)) {
     if (ndef_message_load(argv[1 + options], &nfcforum_tag4_data) < 0) {
-      printf("Can't load NDEF file '%s'", argv[1 + options]);
+      printf("Can't load NDEF file '%s'\n", argv[1 + options]);
       exit(EXIT_FAILURE);
     }
   }
@@ -396,13 +401,36 @@ main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
+  // Display libnfc version
+  printf("%s uses libnfc %s\n", argv[0], nfc_version());
   // Try to open the NFC reader
-  pnd = nfc_open(context, NULL);
+
+  nfc_connstring connstrings[MAX_DEVICE_COUNT];
+  size_t szDeviceFound = nfc_list_devices(context, connstrings, MAX_DEVICE_COUNT);
+
+  if (szDeviceFound == 0) {
+      printf("No NFC device found.\n");
+  }
+  int i;
+  for (i = 0; i < szDeviceFound; i++) {
+      nfc_target ant[MAX_TARGET_COUNT];
+      pnd = nfc_open(context, connstrings[i]);
+      if (pnd == NULL) {
+          printf("Unable to open NFC device: %s\n", connstrings[i]);
+          continue;
+      }
+      else
+      {
+          printf("NFC device: %s found\n", nfc_device_get_name(pnd));
+          break;
+      }
+
+  }
 
   if (pnd == NULL) {
-    ERR("Unable to open NFC device");
-    nfc_exit(context);
-    exit(EXIT_FAILURE);
+      ERR("Error opening NFC reader");
+      nfc_exit(context);
+      exit(EXIT_FAILURE);
   }
 
   signal(SIGINT, stop_emulation);

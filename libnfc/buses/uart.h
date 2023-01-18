@@ -7,6 +7,7 @@
  * Copyright (C) 2010-2012 Romain Tartière
  * Copyright (C) 2010-2013 Philippe Teuwen
  * Copyright (C) 2012-2013 Ludovic Rousseau
+ * See AUTHORS file for a more comprehensive list of contributors.
  * Additional contributors of this file:
  *
  * This program is free software: you can redistribute it and/or modify it
@@ -32,7 +33,9 @@
 #ifndef __NFC_BUS_UART_H__
 #  define __NFC_BUS_UART_H__
 
+#if !defined(_MSC_VER)
 #  include <sys/time.h>
+#endif
 
 #  include <stdio.h>
 #  include <string.h>
@@ -48,7 +51,7 @@ typedef void *serial_port;
 
 serial_port uart_open(const char *pcPortName);
 void    uart_close(const serial_port sp);
-void    uart_flush_input(const serial_port sp);
+void    uart_flush_input(const serial_port sp, bool wait);
 
 void    uart_set_speed(serial_port sp, const uint32_t uiPortSpeed);
 uint32_t uart_get_speed(const serial_port sp);

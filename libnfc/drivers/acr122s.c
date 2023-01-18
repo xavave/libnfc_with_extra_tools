@@ -7,6 +7,7 @@
  * Copyright (C) 2010-2012 Romain Tartière
  * Copyright (C) 2010-2013 Philippe Teuwen
  * Copyright (C) 2012-2013 Ludovic Rousseau
+ * See AUTHORS file for a more comprehensive list of contributors.
  * Additional contributors of this file:
  * Copyright (C) 2011      Anugrah Redja Kusuma
  *
@@ -309,6 +310,8 @@ acr122s_build_frame(nfc_device *pnd,
     return false;
   if (data_size + should_prefix > 255)
     return false;
+  if (data == NULL)
+    return false;
 
   struct xfr_block_req *req = (struct xfr_block_req *) &frame[1];
   req->message_type = XFR_BLOCK_REQ_MSG;
@@ -385,7 +388,9 @@ acr122s_get_firmware_version(nfc_device *pnd, char *version, size_t length)
   int ret;
   uint8_t cmd[MAX_FRAME_SIZE];
 
-  acr122s_build_frame(pnd, cmd, sizeof(cmd), 0x48, 0, NULL, 0, 0);
+  if (! acr122s_build_frame(pnd, cmd, sizeof(cmd), 0x48, 0, NULL, 0, 0)) {
+    return NFC_EINVARG;
+  }
 
   if ((ret = acr122s_send_frame(pnd, cmd, 1000)) != 0)
     return ret;
@@ -418,11 +423,11 @@ acr122s_scan(const nfc_context *context, nfc_connstring connstrings[], const siz
 
   while ((acPort = acPorts[iDevice++])) {
     sp = uart_open(acPort);
-    log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "Trying to find ACR122S device on serial port: %s at %d bauds.", acPort, ACR122S_DEFAULT_SPEED);
+    log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "Trying to find ACR122S device on serial port: %s at %d baud.", acPort, ACR122S_DEFAULT_SPEED);
 
     if ((sp != INVALID_SERIAL_PORT) && (sp != CLAIMED_SERIAL_PORT)) {
       // We need to flush input to be sure first reply does not comes from older byte transceive
-      uart_flush_input(sp);
+      uart_flush_input(sp, true);
       uart_set_speed(sp, ACR122S_DEFAULT_SPEED);
 
       nfc_connstring connstring;
@@ -431,7 +436,12 @@ acr122s_scan(const nfc_context *context, nfc_connstring connstrings[], const siz
       if (!pnd) {
         perror("malloc");
         uart_close(sp);
-        return -1;
+        iDevice = 0;
+        while ((acPort = acPorts[iDevice++])) {
+          free((void *)acPort);
+        }
+        free(acPorts);
+        return 0;
       }
 
       pnd->driver = &acr122s_driver;
@@ -440,7 +450,12 @@ acr122s_scan(const nfc_context *context, nfc_connstring connstrings[], const siz
         perror("malloc");
         uart_close(sp);
         nfc_device_free(pnd);
-        return -1;
+        iDevice = 0;
+        while ((acPort = acPorts[iDevice++])) {
+          free((void *)acPort);
+        }
+        free(acPorts);
+        return 0;
       }
       DRIVER_DATA(pnd)->port = sp;
       DRIVER_DATA(pnd)->seq = 0;
@@ -449,6 +464,11 @@ acr122s_scan(const nfc_context *context, nfc_connstring connstrings[], const siz
       if (pipe(DRIVER_DATA(pnd)->abort_fds) < 0) {
         uart_close(DRIVER_DATA(pnd)->port);
         nfc_device_free(pnd);
+        iDevice = 0;
+        while ((acPort = acPorts[iDevice++])) {
+          free((void *)acPort);
+        }
+        free(acPorts);
         return 0;
       }
 #else
@@ -459,6 +479,11 @@ acr122s_scan(const nfc_context *context, nfc_connstring connstrings[], const siz
         perror("malloc");
         uart_close(DRIVER_DATA(pnd)->port);
         nfc_device_free(pnd);
+        iDevice = 0;
+        while ((acPort = acPorts[iDevice++])) {
+          free((void *)acPort);
+        }
+        free(acPorts);
         return 0;
       }
       CHIP_DATA(pnd)->type = PN532;
@@ -503,7 +528,7 @@ acr122s_close(nfc_device *pnd)
   uart_close(DRIVER_DATA(pnd)->port);
 
 #ifndef WIN32
-  // Release file descriptors used for abort mecanism
+  // Release file descriptors used for abort mechanism
   close(DRIVER_DATA(pnd)->abort_fds[0]);
   close(DRIVER_DATA(pnd)->abort_fds[1]);
 #endif
@@ -538,7 +563,7 @@ acr122s_open(const nfc_context *context, const nfc_connstring connstring)
   }
 
   log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG,
-          "Attempt to connect to: %s at %d bauds.", ndd.port, ndd.speed);
+          "Attempt to connect to: %s at %d baud.", ndd.port, ndd.speed);
 
   sp = uart_open(ndd.port);
   if (sp == INVALID_SERIAL_PORT) {
@@ -554,7 +579,7 @@ acr122s_open(const nfc_context *context, const nfc_connstring connstring)
     return NULL;
   }
 
-  uart_flush_input(sp);
+  uart_flush_input(sp, true);
   uart_set_speed(sp, ndd.speed);
 
   pnd = nfc_device_new(context, connstring);
@@ -635,10 +660,13 @@ acr122s_open(const nfc_context *context, const nfc_connstring connstring)
 static int
 acr122s_send(nfc_device *pnd, const uint8_t *buf, const size_t buf_len, int timeout)
 {
-  uart_flush_input(DRIVER_DATA(pnd)->port);
+  uart_flush_input(DRIVER_DATA(pnd)->port, false);
 
   uint8_t cmd[MAX_FRAME_SIZE];
-  acr122s_build_frame(pnd, cmd, sizeof(cmd), 0, 0, buf, buf_len, 1);
+  if (! acr122s_build_frame(pnd, cmd, sizeof(cmd), 0, 0, buf, buf_len, 1)) {
+    return NFC_EINVARG;
+  }
+
   int ret;
   if ((ret = acr122s_send_frame(pnd, cmd, timeout)) != 0) {
     log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_ERROR, "%s", "Unable to transmit data. (TX)");

@@ -7,6 +7,7 @@
  * Copyright (C) 2010-2012 Romain Tartière
  * Copyright (C) 2010-2013 Philippe Teuwen
  * Copyright (C) 2012-2013 Ludovic Rousseau
+ * See AUTHORS file for a more comprehensive list of contributors.
  * Additional contributors of this file:
  * Copyright (C) 2010      Emanuele Bertoldi
  *
@@ -57,7 +58,9 @@
 
 #define MAX_FRAME_LEN 264
 #define TIMEOUT 60              // secs.
-
+#define MAX_DEVICE_COUNT 16
+#define MAX_TARGET_COUNT 16
+static nfc_device* pnd;
 static void
 wait_one_minute(void)
 {
@@ -93,16 +96,36 @@ main(int argc, const char *argv[])
   const char *acLibnfcVersion = nfc_version();
   printf("%s uses libnfc %s\n", argv[0], acLibnfcVersion);
 
-  // Open using the first available NFC device
-  nfc_device *pnd;
-  pnd = nfc_open(context, NULL);
 
-  if (pnd == NULL) {
-    ERR("%s", "Unable to open NFC device.");
-    nfc_exit(context);
-    exit(EXIT_FAILURE);
+ // Try to open the NFC reader
+
+  nfc_connstring connstrings[MAX_DEVICE_COUNT];
+  size_t szDeviceFound = nfc_list_devices(context, connstrings, MAX_DEVICE_COUNT);
+
+  if (szDeviceFound == 0) {
+      printf("No NFC device found.\n");
+  }
+  int i;
+  for (i = 0; i < szDeviceFound; i++) {
+      nfc_target ant[MAX_TARGET_COUNT];
+      pnd = nfc_open(context, connstrings[i]);
+      if (pnd == NULL) {
+          printf("Unable to open NFC device: %s\n", connstrings[i]);
+          continue;
+      }
+      else
+      {
+          printf("NFC device: %s found\n", nfc_device_get_name(pnd));
+          break;
+      }
+
   }
 
+  if (pnd == NULL) {
+      ERR("Error opening NFC reader");
+      nfc_exit(context);
+      exit(EXIT_FAILURE);
+  }
   printf("NFC device: %s opened\n", nfc_device_get_name(pnd));
 
   // Print the example's menu
@@ -113,7 +136,7 @@ main(int argc, const char *argv[])
   printf(">> ");
 
   // Take user's choice
-  char    input = getchar();
+  int input = getchar();
   printf("\n");
   if ((input < '1') || (input > '3')) {
     ERR("%s", "Invalid selection.");

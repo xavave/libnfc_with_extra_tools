@@ -7,6 +7,7 @@
  * Copyright (C) 2010-2012 Romain Tartière
  * Copyright (C) 2010-2013 Philippe Teuwen
  * Copyright (C) 2012-2013 Ludovic Rousseau
+ * See AUTHORS file for a more comprehensive list of contributors.
  * Additional contributors of this file:
  *
  * This program is free software: you can redistribute it and/or modify it
@@ -80,32 +81,38 @@
 #define TgGetTargetStatus 0x8A
 
 /** @note PN53x's normal frame:
+ * See the PN532 (firmware) user manual, section 6.2.1.1: Normal information
+ * frame, figure 13. Normal information frame, page 28 rev. 02 - 2007-11-07.
  *
- *   .-- Start
- *   |   .-- Packet length
- *   |   |  .-- Length checksum
- *   |   |  |  .-- Direction (D4 Host to PN, D5 PN to Host)
- *   |   |  |  |  .-- Code
- *   |   |  |  |  |  .-- Packet checksum
- *   |   |  |  |  |  |  .-- Postamble
- *   V   |  |  |  |  |  |
- * ----- V  V  V  V  V  V
- * 00 FF 02 FE D4 02 2A 00
+ * .-- Preamble
+ * |    .-- Start
+ * |    |   .-- Packet length
+ * |    |   |  .-- Length checksum
+ * |    |   |  |  .-- Direction (D4 Host to PN, D5 PN to Host)
+ * |    |   |  |  |  .-- Code
+ * |    |   |  |  |  |  .-- Packet checksum
+ * |    |   |  |  |  |  |  .-- Postamble
+ * |    V   |  |  |  |  |  |
+ * V  ----- V  V  V  V  V  V
+ * 00 00 FF 02 FE D4 02 2A 00
  */
 
 /** @note PN53x's extended frame:
+ * See the PN532 (firmware) user manual, section 6.2.1.2: Extended information
+ * frame, figure 14. Normal information frame, page 29 rev. 02 - 2007-11-07.
  *
- *   .-- Start
- *   |     .-- Fixed to FF to enable extended frame
- *   |     |     .-- Packet length
- *   |     |     |   .-- Length checksum
- *   |     |     |   |  .-- Direction (D4 Host to PN, D5 PN to Host)
- *   |     |     |   |  |  .-- Code
- *   |     |     |   |  |  |  .-- Packet checksum
- *   |     |     |   |  |  |  |  .-- Postamble
- *   V     V     V   |  |  |  |  |
- * ----- ----- ----- V  V  V  V  V
- * 00 FF FF FF 00 02 FE D4 02 2A 00
+ * .-- Preamble
+ * |    .-- Start
+ * |    |     .-- Fixed to FF to enable extended frame
+ * |    |     |     .-- Packet length
+ * |    |     |     |   .-- Length checksum
+ * |    |     |     |   |  .-- Direction (D4 Host to PN, D5 PN to Host)
+ * |    |     |     |   |  |  .-- Code
+ * |    |     |     |   |  |  |  .-- Packet checksum
+ * |    |     |     |   |  |  |  |  .-- Postamble
+ * |    V     V     V   |  |  |  |  |
+ * V  ----- ----- ----- V  V  V  V  V
+ * 00 00 FF FF FF 00 02 FE D4 02 2A 00
  */
 
 /**

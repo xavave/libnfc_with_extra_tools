@@ -7,6 +7,7 @@
  * Copyright (C) 2010-2012 Romain Tartière
  * Copyright (C) 2010-2013 Philippe Teuwen
  * Copyright (C) 2012-2013 Ludovic Rousseau
+ * See AUTHORS file for a more comprehensive list of contributors.
  * Additional contributors of this file:
  *
  * This program is free software: you can redistribute it and/or modify it
@@ -32,9 +33,9 @@
 #ifdef CONFFILES
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <dirent.h>
 #include <string.h>
-#include <regex.h>
 #include <sys/stat.h>
 
 #include <nfc/nfc.h>
@@ -55,30 +56,129 @@
 #define LIBNFC_CONFFILE        LIBNFC_SYSCONFDIR"/libnfc.conf"
 #define LIBNFC_DEVICECONFDIR   LIBNFC_SYSCONFDIR"/devices.d"
 
-static bool
-conf_parse_file(const char *filename, void (*conf_keyvalue)(void *data, const char *key, const char *value), void *data)
+static int
+escaped_value(const char line[BUFSIZ], int i, char **value)
+{
+  if (line[i] != '"')
+    goto FAIL;
+  i++;
+  if (line[i] == 0 || line[i] == '\n')
+    goto FAIL;
+  int c = 0;
+  while (line[i] && line[i] != '"') {
+    i++;
+    c++;
+  }
+  if (line[i] != '"')
+    goto FAIL;
+  *value = malloc(c + 1);
+  if (!*value)
+    goto FAIL;
+  memset(*value, 0, c + 1);
+  memcpy(*value, &line[i - c], c);
+  i++;
+  while (line[i] && isspace(line[i]))
+    i++;
+  if (line[i] != 0 && line[i] != '\n')
+    goto FAIL;
+  return 0;
+
+FAIL:
+  free(*value);
+  *value = NULL;
+  return -1;
+}
+
+static int
+non_escaped_value(const char line[BUFSIZ], int i, char **value)
+{
+  int c = 0;
+  while (line[i] && !isspace(line[i])) {
+    i++;
+    c++;
+  }
+  *value = malloc(c + 1);
+  if (!*value)
+    goto FAIL;
+  memset(*value, 0, c + 1);
+  memcpy(*value, &line[i - c], c);
+  i++;
+  while (line[i] && isspace(line[i]))
+    i++;
+  if (line[i] != 0)
+    goto FAIL;
+  return 0;
+
+FAIL:
+  free(*value);
+  *value = NULL;
+  return -1;
+}
+
+static int
+parse_line(const char line[BUFSIZ], char **key, char **value)
+{
+  *key = NULL;
+  *value = NULL;
+  int i = 0;
+  int c = 0;
+
+  // optional initial spaces
+  while (isspace(line[i]))
+    i++;
+  if (line[i] == 0 || line[i] == '\n')
+    return -1;
+
+  // key
+  while (isalnum(line[i]) || line[i] == '_' || line[i] == '.') {
+    i++;
+    c++;
+  }
+  if (c == 0 || line[i] == 0 || line[i] == '\n') // key is empty
+    return -1;
+  *key = malloc(c + 1);
+  if (!*key)
+    return -1;
+  memset(*key, 0, c + 1);
+  memcpy(*key, &line[i - c], c);
+
+  // space before '='
+  while (isspace(line[i]))
+    i++;
+  if (line[i] != '=')
+    return -1;
+  i++;
+  if (line[i] == 0 || line[i] == '\n')
+    return -1;
+  // space after '='
+  while (isspace(line[i]))
+    i++;
+  if (line[i] == 0 || line[i] == '\n')
+    return -1;
+  if (escaped_value(line, i, value) == 0)
+    return 0;
+  else if (non_escaped_value(line, i, value) == 0)
+    return 0;
+
+  // Extracting key or value failed
+  free(*key);
+  *key = NULL;
+  free(*value);
+  *value = NULL;
+  return -1;
+}
+
+static void
+conf_parse_file(const char *filename,
+                void (*conf_keyvalue)(void *data, const char *key, const char *value),
+                void *data)
 {
   FILE *f = fopen(filename, "r");
   if (!f) {
     log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_INFO, "Unable to open file: %s", filename);
-    return false;
+    return;
   }
   char line[BUFSIZ];
-  const char *str_regex = "^[[:space:]]*([[:alnum:]_.]+)[[:space:]]*=[[:space:]]*(\"(.+)\"|([^[:space:]]+))[[:space:]]*$";
-  regex_t preg;
-  if (regcomp(&preg, str_regex, REG_EXTENDED | REG_NOTEOL) != 0) {
-    log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_ERROR, "%s", "Regular expression used for configuration file parsing is not valid.");
-    fclose(f);
-    return false;
-  }
-  size_t nmatch = preg.re_nsub + 1;
-  regmatch_t *pmatch = malloc(sizeof(*pmatch) * nmatch);
-  if (!pmatch) {
-    log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_ERROR, "%s", "Not enough memory: malloc failed.");
-    regfree(&preg);
-    fclose(f);
-    return false;
-  }
 
   int lineno = 0;
   while (fgets(line, BUFSIZ, f) != NULL) {
@@ -88,30 +188,22 @@ conf_parse_file(const char *filename, void (*conf_keyvalue)(void *data, const ch
       case '\n':
         break;
       default: {
-        int match;
-        if ((match = regexec(&preg, line, nmatch, pmatch, 0)) == 0) {
-          const size_t key_size = pmatch[1].rm_eo - pmatch[1].rm_so;
-          const off_t  value_pmatch = pmatch[3].rm_eo != -1 ? 3 : 4;
-          const size_t value_size = pmatch[value_pmatch].rm_eo - pmatch[value_pmatch].rm_so;
-          char key[key_size + 1];
-          char value[value_size + 1];
-          strncpy(key, line + (pmatch[1].rm_so), key_size);
-          key[key_size] = '\0';
-          strncpy(value, line + (pmatch[value_pmatch].rm_so), value_size);
-          value[value_size] = '\0';
+        char *key;
+        char *value;
+        if (parse_line(line, &key, &value) == 0) {
           conf_keyvalue(data, key, value);
+          free(key);
+          free(value);
         } else {
+          free(key);
+          free(value);
           log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "Parse error on line #%d: %s", lineno, line);
         }
       }
-      break;
     }
   }
-
-  free(pmatch);
-  regfree(&preg);
   fclose(f);
-  return false;
+  return;
 }
 
 static void
@@ -133,7 +225,8 @@ conf_keyvalue_context(void *data, const char *key, const char *value)
       }
       context->user_defined_device_count++;
     }
-    strcpy(context->user_defined_devices[context->user_defined_device_count - 1].name, value);
+    strncpy(context->user_defined_devices[context->user_defined_device_count - 1].name, value, DEVICE_NAME_LENGTH - 1);
+    context->user_defined_devices[context->user_defined_device_count - 1].name[DEVICE_NAME_LENGTH - 1] = '\0';
   } else if (strcmp(key, "device.connstring") == 0) {
     if ((context->user_defined_device_count == 0) || strcmp(context->user_defined_devices[context->user_defined_device_count - 1].connstring, "") != 0) {
       if (context->user_defined_device_count >= MAX_USER_DEFINED_DEVICES) {
@@ -142,7 +235,8 @@ conf_keyvalue_context(void *data, const char *key, const char *value)
       }
       context->user_defined_device_count++;
     }
-    strcpy(context->user_defined_devices[context->user_defined_device_count - 1].connstring, value);
+    strncpy(context->user_defined_devices[context->user_defined_device_count - 1].connstring, value, NFC_BUFSIZE_CONNSTRING - 1);
+    context->user_defined_devices[context->user_defined_device_count - 1].connstring[NFC_BUFSIZE_CONNSTRING - 1] = '\0';
   } else if (strcmp(key, "device.optional") == 0) {
     if ((context->user_defined_device_count == 0) || context->user_defined_devices[context->user_defined_device_count - 1].optional) {
       if (context->user_defined_device_count >= MAX_USER_DEFINED_DEVICES) {
@@ -174,10 +268,8 @@ conf_devices_load(const char *dirname, nfc_context *context)
     log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "Unable to open directory: %s", dirname);
   } else {
     struct dirent *de;
-    struct dirent entry;
-    struct dirent *result;
-    while ((readdir_r(d, &entry, &result) == 0) && (result != NULL)) {
-      de = &entry;
+    while ((de =  readdir(d)) != NULL)  {
+      // FIXME add a way to sort devices
       if (de->d_name[0] != '.') {
         const size_t filename_len = strlen(de->d_name);
         const size_t extension_len = strlen(".conf");

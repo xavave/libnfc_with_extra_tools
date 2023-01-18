@@ -7,8 +7,10 @@
  * Copyright (C) 2010-2012 Romain Tartière
  * Copyright (C) 2010-2013 Philippe Teuwen
  * Copyright (C) 2012-2013 Ludovic Rousseau
+ * See AUTHORS file for a more comprehensive list of contributors.
  * Additional contributors of this file:
  * Copyright (C) 2011      Adam Laurie
+ * Copyright (C) 2014      Dario Carluccio
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -61,6 +63,8 @@
 #define SAK_FLAG_ATS_SUPPORTED 0x20
 
 #define MAX_FRAME_LEN 264
+#define MAX_DEVICE_COUNT 16
+#define MAX_TARGET_COUNT 16
 
 static uint8_t abtRx[MAX_FRAME_LEN];
 static int szRxBits;
@@ -139,12 +143,13 @@ transmit_bytes(const uint8_t *pbtTx, const size_t szTx)
 static void
 print_usage(char *argv[])
 {
-  printf("Usage: %s [OPTIONS] [UID]\n", argv[0]);
+  printf("Usage: %s [OPTIONS] [UID|BLOCK0]\n", argv[0]);
   printf("Options:\n");
   printf("\t-h\tHelp. Print this message.\n");
   printf("\t-f\tFormat. Delete all data (set to 0xFF) and reset ACLs to default.\n");
   printf("\t-q\tQuiet mode. Suppress output of READER and CARD data (improves timing).\n");
   printf("\n\tSpecify UID (4 HEX bytes) to set UID, or leave blank for default '01234567'.\n");
+  printf("\n\tSpecify BLOCK0 (16 HEX bytes) to set content of Block0. CRC (Byte 4) is recalculated an overwritten'.\n");
   printf("\tThis utility can be used to recover cards that have been damaged by writing bad\n");
   printf("\tdata (e.g. wrong BCC), thus making them non-selectable by most tools/readers.\n");
   printf("\n\t*** Note: this utility only works with special Mifare 1K cards (Chinese clones).\n\n");
@@ -176,6 +181,14 @@ main(int argc, char *argv[])
       }
       abtData[4] = abtData[0] ^ abtData[1] ^ abtData[2] ^ abtData[3];
       iso14443a_crc_append(abtData, 16);
+    } else if (strlen(argv[arg]) == 32) {
+      for (i = 0 ; i < 16 ; ++i) {
+        memcpy(tmp, argv[arg] + i * 2, 2);
+        sscanf(tmp, "%02x", &c);
+        abtData[i] = (char) c;
+      }
+      abtData[4] = abtData[0] ^ abtData[1] ^ abtData[2] ^ abtData[3];
+      iso14443a_crc_append(abtData, 16);
     } else {
       ERR("%s is not supported option.", argv[arg]);
       print_usage(argv);
@@ -189,9 +202,32 @@ main(int argc, char *argv[])
     ERR("Unable to init libnfc (malloc)");
     exit(EXIT_FAILURE);
   }
+  // Display libnfc version
+  printf("%s uses libnfc %s\n",argv[0], nfc_version());
 
   // Try to open the NFC reader
-  pnd = nfc_open(context, NULL);
+
+  nfc_connstring connstrings[MAX_DEVICE_COUNT];
+  size_t szDeviceFound = nfc_list_devices(context, connstrings, MAX_DEVICE_COUNT);
+
+  if (szDeviceFound == 0) {
+      printf("No NFC device found.\n");
+  }
+ 
+  for (i = 0; i < szDeviceFound; i++) {
+      nfc_target ant[MAX_TARGET_COUNT];
+      pnd = nfc_open(context, connstrings[i]);
+      if (pnd == NULL) {
+          printf("Unable to open NFC device: %s\n", connstrings[i]);
+          continue;
+      }
+      else
+      {
+          printf("NFC device: %s found\n", nfc_device_get_name(pnd));
+          break;
+      }
+
+  }
 
   if (pnd == NULL) {
     ERR("Error opening NFC reader");
@@ -354,13 +390,23 @@ main(int argc, char *argv[])
   // now reset UID
   iso14443a_crc_append(abtHalt, 2);
   transmit_bytes(abtHalt, 4);
-  transmit_bits(abtUnlock1, 7);
-  if (format) {
-    transmit_bytes(abtWipe, 1);
-    transmit_bytes(abtHalt, 4);
-    transmit_bits(abtUnlock1, 7);
+
+  if (!transmit_bits(abtUnlock1, 7)) {
+    printf("Warning: Unlock command [1/2]: failed / not acknowledged.\n");
+  } else {
+    if (format) {
+      transmit_bytes(abtWipe, 1);
+      transmit_bytes(abtHalt, 4);
+      transmit_bits(abtUnlock1, 7);
+    }
+
+    if (transmit_bytes(abtUnlock2, 1)) {
+      printf("Card unlocked\n");
+    } else {
+      printf("Warning: Unlock command [2/2]: failed / not acknowledged.\n");
+    }
   }
-  transmit_bytes(abtUnlock2, 1);
+
   transmit_bytes(abtWrite, 4);
   transmit_bytes(abtData, 18);
   if (format) {

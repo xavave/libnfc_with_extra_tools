@@ -7,6 +7,7 @@
  * Copyright (C) 2010-2012 Romain Tartière
  * Copyright (C) 2010-2013 Philippe Teuwen
  * Copyright (C) 2012-2013 Ludovic Rousseau
+ * See AUTHORS file for a more comprehensive list of contributors.
  * Additional contributors of this file:
  *
  * This program is free software: you can redistribute it and/or modify it
@@ -70,6 +71,6 @@ nfc_emulate_target(nfc_device *pnd, struct nfc_emulator *emulator, const int tim
       szRx = res;
     }
   }
-  return (io_res < 0) ? io_res : 0;
+  return io_res;
 }
 

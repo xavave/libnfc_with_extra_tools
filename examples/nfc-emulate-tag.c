@@ -7,6 +7,7 @@
  * Copyright (C) 2010-2012 Romain Tartière
  * Copyright (C) 2010-2013 Philippe Teuwen
  * Copyright (C) 2012-2013 Ludovic Rousseau
+ * See AUTHORS file for a more comprehensive list of contributors.
  * Additional contributors of this file:
  *
  * Redistribution and use in source and binary forms, with or without
@@ -59,6 +60,8 @@
 
 #define MAX_FRAME_LEN (264)
 #define SAK_ISO14443_4_COMPLIANT 0x20
+#define MAX_DEVICE_COUNT 16
+#define MAX_TARGET_COUNT 16
 
 static uint8_t abtRx[MAX_FRAME_LEN];
 static int szRx;
@@ -165,7 +168,12 @@ nfc_target_emulate_tag(nfc_device *dev, nfc_target *pnt)
     }
     if (loop) {
       if (init_mfc_auth) {
-        nfc_device_set_property_bool(dev, NP_HANDLE_CRC, false);
+        if (nfc_device_set_property_bool(dev, NP_HANDLE_CRC, false) < 0) {
+          nfc_perror(pnd, "nfc_target_emulate_tag");
+          nfc_close(pnd);
+          nfc_exit(context);
+          exit(EXIT_FAILURE);
+        }
         init_mfc_auth = false;
       }
       if ((szRx = nfc_target_receive_bytes(dev, abtRx, sizeof(abtRx), 0)) < 0) {
@@ -196,16 +204,35 @@ main(int argc, char *argv[])
   }
 
   // Display libnfc version
-  acLibnfcVersion = nfc_version();
-  printf("%s uses libnfc %s\n", argv[0], acLibnfcVersion);
-
+  printf("%s uses libnfc %s\n", argv[0], nfc_version());
   // Try to open the NFC reader
-  pnd = nfc_open(context, NULL);
+
+  nfc_connstring connstrings[MAX_DEVICE_COUNT];
+  size_t szDeviceFound = nfc_list_devices(context, connstrings, MAX_DEVICE_COUNT);
+
+  if (szDeviceFound == 0) {
+      printf("No NFC device found.\n");
+  }
+  int i;
+  for (i = 0; i < szDeviceFound; i++) {
+      nfc_target ant[MAX_TARGET_COUNT];
+      pnd = nfc_open(context, connstrings[i]);
+      if (pnd == NULL) {
+          printf("Unable to open NFC device: %s\n", connstrings[i]);
+          continue;
+      }
+      else
+      {
+          printf("NFC device: %s found\n", nfc_device_get_name(pnd));
+          break;
+      }
+
+  }
 
   if (pnd == NULL) {
-    ERR("Unable to open NFC device");
-    nfc_exit(context);
-    exit(EXIT_FAILURE);
+      ERR("Error opening NFC reader");
+      nfc_exit(context);
+      exit(EXIT_FAILURE);
   }
 
   printf("NFC device: %s opened\n", nfc_device_get_name(pnd));
@@ -260,9 +287,9 @@ main(int argc, char *argv[])
     },
     .nti = {
       .nai = {
-        abtAtqa = { 0x03, 0x44 },
-        abtUid = { 0x08, 0xab, 0xcd, 0xef },
-        btSak = 0x20,
+        .abtAtqa = { 0x03, 0x44 },
+        .abtUid = { 0x08, 0xab, 0xcd, 0xef },
+        .btSak = 0x20,
         .szUidLen = 4,
         .abtAts = { 0x75, 0x77, 0x81, 0x02, 0x80 },
         .szAtsLen = 5,
@@ -275,7 +302,12 @@ main(int argc, char *argv[])
   print_nfc_target(&nt, true);
 
   // Switch off NP_EASY_FRAMING if target is not ISO14443-4
-  nfc_device_set_property_bool(pnd, NP_EASY_FRAMING, (nt.nti.nai.btSak & SAK_ISO14443_4_COMPLIANT));
+  if (nfc_device_set_property_bool(pnd, NP_EASY_FRAMING, (nt.nti.nai.btSak & SAK_ISO14443_4_COMPLIANT)) < 0) {
+    nfc_perror(pnd, "nfc_target_emulate_tag");
+    nfc_close(pnd);
+    nfc_exit(context);
+    exit(EXIT_FAILURE);
+  }
   printf("NFC device (configured as target) is now emulating the tag, please touch it with a second NFC device (initiator)\n");
   if (!nfc_target_emulate_tag(pnd, &nt)) {
     nfc_perror(pnd, "nfc_target_emulate_tag");

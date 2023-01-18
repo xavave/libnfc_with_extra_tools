@@ -7,6 +7,7 @@
  * Copyright (C) 2010-2012 Romain Tartière
  * Copyright (C) 2010-2013 Philippe Teuwen
  * Copyright (C) 2012-2013 Ludovic Rousseau
+ * See AUTHORS file for a more comprehensive list of contributors.
  * Additional contributors of this file:
  *
  * This program is free software: you can redistribute it and/or modify it
@@ -90,7 +91,6 @@ struct arygon_data {
 
 // ARYGON frames
 static const uint8_t arygon_error_none[] = "FF000000\x0d\x0a";
-static const uint8_t arygon_error_incomplete_command[] = "FF0C0000\x0d\x0a";
 static const uint8_t arygon_error_unknown_mode[] = "FF060000\x0d\x0a";
 
 // Prototypes
@@ -108,11 +108,11 @@ arygon_scan(const nfc_context *context, nfc_connstring connstrings[], const size
 
   while ((acPort = acPorts[iDevice++])) {
     sp = uart_open(acPort);
-    log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "Trying to find ARYGON device on serial port: %s at %d bauds.", acPort, ARYGON_DEFAULT_SPEED);
+    log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "Trying to find ARYGON device on serial port: %s at %d baud.", acPort, ARYGON_DEFAULT_SPEED);
 
     if ((sp != INVALID_SERIAL_PORT) && (sp != CLAIMED_SERIAL_PORT)) {
       // We need to flush input to be sure first reply does not comes from older byte transceive
-      uart_flush_input(sp);
+      uart_flush_input(sp, true);
       uart_set_speed(sp, ARYGON_DEFAULT_SPEED);
 
       nfc_connstring connstring;
@@ -121,6 +121,11 @@ arygon_scan(const nfc_context *context, nfc_connstring connstrings[], const size
       if (!pnd) {
         perror("malloc");
         uart_close(sp);
+        iDevice = 0;
+        while ((acPort = acPorts[iDevice++])) {
+          free((void *)acPort);
+        }
+        free(acPorts);
         return 0;
       }
 
@@ -130,6 +135,11 @@ arygon_scan(const nfc_context *context, nfc_connstring connstrings[], const size
         perror("malloc");
         uart_close(sp);
         nfc_device_free(pnd);
+        iDevice = 0;
+        while ((acPort = acPorts[iDevice++])) {
+          free((void *)acPort);
+        }
+        free(acPorts);
         return 0;
       }
       DRIVER_DATA(pnd)->port = sp;
@@ -139,15 +149,25 @@ arygon_scan(const nfc_context *context, nfc_connstring connstrings[], const size
         perror("malloc");
         uart_close(DRIVER_DATA(pnd)->port);
         nfc_device_free(pnd);
+        iDevice = 0;
+        while ((acPort = acPorts[iDevice++])) {
+          free((void *)acPort);
+        }
+        free(acPorts);
         return 0;
       }
 
 #ifndef WIN32
-      // pipe-based abort mecanism
+      // pipe-based abort mechanism
       if (pipe(DRIVER_DATA(pnd)->iAbortFds) < 0) {
         uart_close(DRIVER_DATA(pnd)->port);
         pn53x_data_free(pnd);
         nfc_device_free(pnd);
+        iDevice = 0;
+        while ((acPort = acPorts[iDevice++])) {
+          free((void *)acPort);
+        }
+        free(acPorts);
         return 0;
       }
 #else
@@ -185,21 +205,26 @@ struct arygon_descriptor {
 };
 
 static void
-arygon_close(nfc_device *pnd)
+arygon_close_step2(nfc_device *pnd)
 {
-  pn53x_idle(pnd);
-
   // Release UART port
   uart_close(DRIVER_DATA(pnd)->port);
 
 #ifndef WIN32
-  // Release file descriptors used for abort mecanism
+  // Release file descriptors used for abort mechanism
   close(DRIVER_DATA(pnd)->iAbortFds[0]);
   close(DRIVER_DATA(pnd)->iAbortFds[1]);
 #endif
 
   pn53x_data_free(pnd);
   nfc_device_free(pnd);
+}
+
+static void
+arygon_close(nfc_device *pnd)
+{
+  pn53x_idle(pnd);
+  arygon_close_step2(pnd);
 }
 
 static nfc_device *
@@ -227,7 +252,7 @@ arygon_open(const nfc_context *context, const nfc_connstring connstring)
   serial_port sp;
   nfc_device *pnd = NULL;
 
-  log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "Attempt to open: %s at %d bauds.", ndd.port, ndd.speed);
+  log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "Attempt to open: %s at %d baud.", ndd.port, ndd.speed);
   sp = uart_open(ndd.port);
 
   if (sp == INVALID_SERIAL_PORT)
@@ -240,7 +265,7 @@ arygon_open(const nfc_context *context, const nfc_connstring connstring)
   }
 
   // We need to flush input to be sure first reply does not comes from older byte transceive
-  uart_flush_input(sp);
+  uart_flush_input(sp, true);
   uart_set_speed(sp, ndd.speed);
 
   // We have a connection
@@ -279,7 +304,7 @@ arygon_open(const nfc_context *context, const nfc_connstring connstring)
   pnd->driver = &arygon_driver;
 
 #ifndef WIN32
-  // pipe-based abort mecanism
+  // pipe-based abort mechanism
   if (pipe(DRIVER_DATA(pnd)->iAbortFds) < 0) {
     uart_close(DRIVER_DATA(pnd)->port);
     pn53x_data_free(pnd);
@@ -292,7 +317,7 @@ arygon_open(const nfc_context *context, const nfc_connstring connstring)
 
   // Check communication using "Reset TAMA" command
   if (arygon_reset_tama(pnd) < 0) {
-    arygon_close(pnd);
+    arygon_close_step2(pnd);
     return NULL;
   }
 
@@ -314,7 +339,7 @@ arygon_tama_send(nfc_device *pnd, const uint8_t *pbtData, const size_t szData, i
 {
   int res = 0;
   // Before sending anything, we need to discard from any junk bytes
-  uart_flush_input(DRIVER_DATA(pnd)->port);
+  uart_flush_input(DRIVER_DATA(pnd)->port, false);
 
   uint8_t abtFrame[ARYGON_TX_BUFFER_LEN] = { DEV_ARYGON_PROTOCOL_TAMA, 0x00, 0x00, 0xff };     // Every packet must start with "0x32 0x00 0x00 0xff"
 

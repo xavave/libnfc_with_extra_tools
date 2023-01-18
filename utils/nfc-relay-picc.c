@@ -7,6 +7,7 @@
  * Copyright (C) 2010-2012 Romain Tartière
  * Copyright (C) 2010-2013 Philippe Teuwen
  * Copyright (C) 2012-2013 Ludovic Rousseau
+ * See AUTHORS file for a more comprehensive list of contributors.
  * Additional contributors of this file:
  *
  * Redistribution and use in source and binary forms, with or without
@@ -75,7 +76,7 @@ static bool quiet_output = false;
 static bool initiator_only_mode = false;
 static bool target_only_mode = false;
 static bool swap_devices = false;
-static int waiting_time = 0;
+static unsigned int waiting_time = 0;
 FILE *fd3;
 FILE *fd4;
 
@@ -98,6 +99,7 @@ print_usage(char *argv[])
   printf("\t-q\tQuiet mode. Suppress printing of relayed data (improves timing).\n");
   printf("\t-t\tTarget mode only (the one on reader side). Data expected from FD3 to FD4.\n");
   printf("\t-i\tInitiator mode only (the one on tag side). Data expected from FD3 to FD4.\n");
+  printf("\t-s\tSwap roles of found devices.\n");
   printf("\t-n N\tAdds a waiting time of N seconds (integer) in the relay to mimic long distance.\n");
 }
 
@@ -181,12 +183,12 @@ main(int argc, char *argv[])
       printf("INFO: %s\n", "Swapping devices.");
       swap_devices = true;
     } else if (0 == strcmp(argv[arg], "-n")) {
-      if (++arg == argc || (sscanf(argv[arg], "%10i", &waiting_time) < 1)) {
+      if (++arg == argc || (sscanf(argv[arg], "%10u", &waiting_time) < 1)) {
         ERR("Missing or wrong waiting time value: %s.", argv[arg]);
         print_usage(argv);
         exit(EXIT_FAILURE);
       }
-      printf("Waiting time: %i secs.\n", waiting_time);
+      printf("Waiting time: %u secs.\n", waiting_time);
     } else {
       ERR("%s is not supported option.", argv[arg]);
       print_usage(argv);
@@ -225,7 +227,7 @@ main(int argc, char *argv[])
       nfc_exit(context);
       exit(EXIT_FAILURE);
     }
-    if ((fd4 = fdopen(4, "r")) == NULL) {
+    if ((fd4 = fdopen(4, "w")) == NULL) {
       ERR("Could not open file descriptor 4");
       nfc_exit(context);
       exit(EXIT_FAILURE);
@@ -465,9 +467,9 @@ main(int argc, char *argv[])
     }
     if (ret) {
       // Redirect the answer back to the external reader
-      if (waiting_time > 0) {
+      if (waiting_time != 0) {
         if (!quiet_output) {
-          printf("Waiting %is to simulate longer relay...\n", waiting_time);
+          printf("Waiting %us to simulate longer relay...\n", waiting_time);
         }
         sleep(waiting_time);
       }
@@ -485,7 +487,6 @@ main(int argc, char *argv[])
           }
           if (!initiator_only_mode) {
             nfc_close(pndTarget);
-            nfc_exit(context);
           }
           nfc_exit(context);
           exit(EXIT_FAILURE);

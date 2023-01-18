@@ -7,6 +7,7 @@
  * Copyright (C) 2010-2012 Romain Tartière
  * Copyright (C) 2010-2013 Philippe Teuwen
  * Copyright (C) 2012-2013 Ludovic Rousseau
+ * See AUTHORS file for a more comprehensive list of contributors.
  * Additional contributors of this file:
  *
  * This program is free software: you can redistribute it and/or modify it
@@ -56,6 +57,7 @@ nfc_device_new(const nfc_context *context, const nfc_connstring connstring)
   res->bCrc = false;
   res->bPar = false;
   res->bEasyFraming    = false;
+  res->bInfiniteSelect = false;
   res->bAutoIso14443_4 = false;
   res->last_error  = 0;
   memcpy(res->connstring, connstring, sizeof(res->connstring));

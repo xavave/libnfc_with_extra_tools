@@ -7,6 +7,7 @@
  * Copyright (C) 2010-2012 Romain Tartière
  * Copyright (C) 2010-2013 Philippe Teuwen
  * Copyright (C) 2012-2013 Ludovic Rousseau
+ * See AUTHORS file for a more comprehensive list of contributors.
  * Additional contributors of this file:
  *
  * This program is free software: you can redistribute it and/or modify it
@@ -38,6 +39,5 @@
 uint8_t  mirror(uint8_t bt);
 uint32_t mirror32(uint32_t ui32Bits);
 uint64_t mirror64(uint64_t ui64Bits);
-void    mirror_uint8_ts(uint8_t *pbts, size_t szLen);
 
 #endif // _LIBNFC_MIRROR_SUBR_H_

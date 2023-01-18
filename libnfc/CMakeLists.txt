@@ -5,6 +5,9 @@ IF(WIN32)
 
   # Add in the rc for version information in the dll
   LIST(APPEND WINDOWS_SOURCES ${CMAKE_CURRENT_BINARY_DIR}/../windows/libnfc.rc)
+  IF (NOT MINGW)
+    LIST(APPEND WINDOWS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/nfc_msvc.def)
+  ENDIF()
 ENDIF(WIN32)
 
 # Library's chips
@@ -26,36 +29,26 @@ IF(UART_REQUIRED)
 ENDIF(UART_REQUIRED)
 
 IF(I2C_REQUIRED)
-  IF(WIN32)
-    # Windows is not supported at the moment
-    #LIST(APPEND BUSES_SOURCES ../contrib/win32/libnfc/buses/i2c)
-    MESSAGE( FATAL_ERROR "I2C not (yet) supported under Windows!" )
-  ELSE(WIN32)
+  IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     LIST(APPEND BUSES_SOURCES buses/i2c)
-  ENDIF(WIN32)
+  ELSE(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    # Only Linux is supported at the moment
+    #LIST(APPEND BUSES_SOURCES ../contrib/win32/libnfc/buses/i2c)
+    MESSAGE( FATAL_ERROR "I2C is only (yet) supported in Linux!" )
+  ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 ENDIF(I2C_REQUIRED)
 
 IF(SPI_REQUIRED)
-  IF(WIN32)
-    # Windows is not supported at the moment
-    #LIST(APPEND BUSES_SOURCES ../contrib/win32/libnfc/buses/spi)
-    MESSAGE( FATAL_ERROR "SPI not (yet) supported under Windows!" )
-  ELSE(WIN32)
+  IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     LIST(APPEND BUSES_SOURCES buses/spi)
-  ENDIF(WIN32)
+  ELSE(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    # Only Linux is supported at the moment
+    #LIST(APPEND BUSES_SOURCES ../contrib/win32/libnfc/buses/spi)
+    MESSAGE( FATAL_ERROR "SPI is only (yet) supported in Linux!" )
+  ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 ENDIF(SPI_REQUIRED)
 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/buses)
-
-IF(WIN32)
-  # Windows now requires regex, so we utilize PCRE
-  # since Windows doesn't get the benefit of finding in CMake
-  # it has to be added manually
-  IF(PCRE_FOUND)
-    INCLUDE_DIRECTORIES(${PCRE_INCLUDE_DIRS})
-    LINK_DIRECTORIES(${PCRE_LIBRARY_DIRS})
-  ENDIF(PCRE_FOUND)
-ENDIF(WIN32)
 
 IF(PCSC_FOUND)
   INCLUDE_DIRECTORIES(${PCSC_INCLUDE_DIRS})
@@ -73,7 +66,9 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR})
 
 IF(LIBNFC_LOG)
   IF(WIN32)
-    SET(CMAKE_C_FLAGS "-fgnu89-inline ${CMAKE_C_FLAGS}")
+    IF(MINGW)
+      SET(CMAKE_C_FLAGS "-fgnu89-inline ${CMAKE_C_FLAGS}")
+    ENDIF(MINGW)
     LIST(APPEND LIBRARY_SOURCES log ../contrib/win32/libnfc/log-internal)
   ELSE(WIN32)
     LIST(APPEND LIBRARY_SOURCES log log-internal)
@@ -89,21 +84,25 @@ IF(LIBUSB_FOUND)
   TARGET_LINK_LIBRARIES(nfc ${LIBUSB_LIBRARIES})
 ENDIF(LIBUSB_FOUND)
 
-SET_TARGET_PROPERTIES(nfc PROPERTIES SOVERSION 0)
+IF(LIBRT_FOUND)
+  TARGET_LINK_LIBRARIES(nfc ${LIBRT_LIBRARIES})
+ENDIF(LIBRT_FOUND)
+
+SET_TARGET_PROPERTIES(nfc PROPERTIES SOVERSION 6 VERSION 6.0.0)
 
 IF(WIN32)
   # Libraries that are windows specific
   TARGET_LINK_LIBRARIES(nfc wsock32)
-  IF(PCRE_FOUND)
-    TARGET_LINK_LIBRARIES(nfc ${PCRE_LIBRARIES})
-  ENDIF(PCRE_FOUND)
-
-  ADD_CUSTOM_COMMAND(
-    OUTPUT libnfc.lib
-    COMMAND dlltool -d ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/nfc.def -l ${CMAKE_CURRENT_BINARY_DIR}/libnfc.lib ${CMAKE_CURRENT_BINARY_DIR}/libnfc.dll
-    DEPENDS nfc ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/nfc.def
-  )
-  ADD_CUSTOM_TARGET(win32lib ALL DEPENDS libnfc.lib)
+  IF(MINGW)
+    ADD_CUSTOM_COMMAND(
+      OUTPUT libnfc.lib
+      COMMAND ${DLLTOOL} -d ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/nfc.def -l ${CMAKE_CURRENT_BINARY_DIR}/libnfc.lib ${CMAKE_CURRENT_BINARY_DIR}/libnfc.dll
+      DEPENDS nfc ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/nfc.def
+    )
+    ADD_CUSTOM_TARGET(win32lib ALL DEPENDS libnfc.lib)
+  ELSE()
+    ADD_LIBRARY(win32lib ALIAS nfc)
+  ENDIF()
 
   # On Windows the shared (runtime) library should be either in the same 
   # directory as the excutables or in the path, we add it to same directory

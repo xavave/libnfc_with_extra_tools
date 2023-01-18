@@ -7,6 +7,7 @@
  * Copyright (C) 2010-2012 Romain Tartière
  * Copyright (C) 2010-2013 Philippe Teuwen
  * Copyright (C) 2012-2013 Ludovic Rousseau
+ * See AUTHORS file for a more comprehensive list of contributors.
  * Additional contributors of this file:
  *
  * This program is free software: you can redistribute it and/or modify it
@@ -58,7 +59,7 @@
 #  define IOCTL_CCID_ESCAPE_SCARD_CTL_CODE SCARD_CTL_CODE(3500)
 #elif defined(__APPLE__)
 #  define IOCTL_CCID_ESCAPE_SCARD_CTL_CODE (((0x31) << 16) | ((3500) << 2))
-#elif defined (__FreeBSD__) || defined (__OpenBSD__)
+#elif defined (__FreeBSD__) || defined (__OpenBSD__) || defined (__NetBSD__)
 #  define IOCTL_CCID_ESCAPE_SCARD_CTL_CODE (((0x31) << 16) | ((3500) << 2))
 #elif defined (__linux__)
 #  include <reader.h>
@@ -79,7 +80,7 @@
 
 #define FIRMWARE_TEXT "ACR122U" // Tested on: ACR122U101(ACS), ACR122U102(Tikitag), ACR122U203(ACS)
 
-#define ACR122_PCSC_WRAP_LEN 5
+#define ACR122_PCSC_WRAP_LEN 6
 #define ACR122_PCSC_COMMAND_LEN 266
 #define ACR122_PCSC_RESPONSE_LEN 268
 
@@ -92,7 +93,7 @@ const struct pn53x_io acr122_pcsc_io;
 // Prototypes
 char   *acr122_pcsc_firmware(nfc_device *pnd);
 
-const char *supported_devices[] = {
+static const char *supported_devices[] = {
   "ACS ACR122",         // ACR122U & Touchatag, last version
   "ACS ACR 38U-CCID",   // Touchatag, early version
   "ACS ACR38U-CCID",    // Touchatag, early version, under MacOSX
@@ -338,7 +339,7 @@ acr122_pcsc_send(nfc_device *pnd, const uint8_t *pbtData, const size_t szData, i
   // Prepare and transmit the send buffer
   const size_t szTxBuf = szData + 6;
   uint8_t  abtTxBuf[ACR122_PCSC_WRAP_LEN + ACR122_PCSC_COMMAND_LEN] = { 0xFF, 0x00, 0x00, 0x00, szData + 1, 0xD4 };
-  memcpy(abtTxBuf + 6, pbtData, szData);
+  memcpy(abtTxBuf + ACR122_PCSC_WRAP_LEN, pbtData, szData);
   LOG_HEX(NFC_LOG_GROUP_COM, "TX", abtTxBuf, szTxBuf);
 
   DRIVER_DATA(pnd)->szRx = 0;
@@ -399,15 +400,14 @@ acr122_pcsc_receive(nfc_device *pnd, uint8_t *pbtData, const size_t szData, int 
 {
   // FIXME: timeout is not handled
   (void) timeout;
-
   int len;
-  uint8_t  abtRxCmd[5] = { 0xFF, 0xC0, 0x00, 0x00 };
 
   if (DRIVER_DATA(pnd)->ioCard.dwProtocol == SCARD_PROTOCOL_T0) {
     /*
      * Retrieve the PN532 response.
      */
     DWORD dwRxLen = sizeof(DRIVER_DATA(pnd)->abtRx);
+    uint8_t  abtRxCmd[5] = { 0xFF, 0xC0, 0x00, 0x00 };
     abtRxCmd[4] = DRIVER_DATA(pnd)->abtRx[1];
     if (SCardTransmit(DRIVER_DATA(pnd)->hCard, &(DRIVER_DATA(pnd)->ioCard), abtRxCmd, sizeof(abtRxCmd), NULL, DRIVER_DATA(pnd)->abtRx, &dwRxLen) != SCARD_S_SUCCESS) {
       pnd->last_error = NFC_EIO;

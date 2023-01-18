@@ -7,7 +7,9 @@
  * Copyright (C) 2010-2012 Romain Tartière
  * Copyright (C) 2010-2013 Philippe Teuwen
  * Copyright (C) 2012-2013 Ludovic Rousseau
+ * See AUTHORS file for a more comprehensive list of contributors.
  * Additional contributors of this file:
+ * Copyright (C) 2020      Adam Laurie
  *
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published by the
@@ -411,7 +413,7 @@ snprint_nfc_iso14443a_info(char *dst, size_t size, const nfc_iso14443a_info *pna
 
     for (i = 0; i < sizeof(const_ca) / sizeof(const_ca[0]); i++) {
       if ((atqa & const_ca[i].mask) == const_ca[i].atqa) {
-        for (j = 0; (j < sizeof(const_ca[i].saklist)) && (const_ca[i].saklist[j] >= 0); j++) {
+        for (j = 0; (j < sizeof(const_ca[i].saklist) / sizeof(const_ca[i].saklist[0])) && (const_ca[i].saklist[j] >= 0); j++) {
           int sakindex = const_ca[i].saklist[j];
           if ((sak & const_cs[sakindex].mask) == const_cs[sakindex].sak) {
             off += snprintf(dst + off, size - off, "* %s%s\n", const_ca[i].type, const_cs[sakindex].type);
@@ -497,6 +499,22 @@ snprint_nfc_jewel_info(char *dst, size_t size, const nfc_jewel_info *pnji, bool 
   snprint_hex(dst + off, size - off, pnji->btId, 4);
 }
 
+void
+snprint_nfc_barcode_info(char *dst, size_t size, const nfc_barcode_info *pnti, bool verbose)
+{
+  (void) verbose;
+  int off = 0;
+  off += snprintf(dst + off, size - off, "        Size (bits): %lu\n", (unsigned long)(pnti->szDataLen * 8));
+  off += snprintf(dst + off, size - off, "            Content: ");
+  for (uint8_t i = 0; i < pnti->szDataLen; i++) {
+    off += snprintf(dst + off, size - off, "%02X", pnti->abtData[i]);
+    if ((i % 8 == 7) && (i < (pnti->szDataLen - 1))) {
+      off += snprintf(dst + off, size - off, "\n                     ");
+    }
+  }
+  snprintf(dst + off, size - off, "\n");
+}
+
 #define PI_ISO14443_4_SUPPORTED 0x01
 #define PI_NAD_SUPPORTED        0x01
 #define PI_CID_SUPPORTED        0x02
@@ -543,7 +561,9 @@ snprint_nfc_iso14443b_info(char *dst, size_t size, const nfc_iso14443b_info *pnb
       const int iMaxFrameSizes[] = { 16, 24, 32, 40, 48, 64, 96, 128, 256 };
       off += snprintf(dst + off, size - off, "* Maximum frame sizes: %d bytes\n", iMaxFrameSizes[((pnbi->abtProtocolInfo[1] & 0xf0) >> 4)]);
     }
-    if ((pnbi->abtProtocolInfo[1] & 0x0f) == PI_ISO14443_4_SUPPORTED) {
+    if ((pnbi->abtProtocolInfo[1] & 0x01) == PI_ISO14443_4_SUPPORTED) {
+      // in principle low nibble could only be 0000 or 0001 and other values are RFU
+      // but in practice we found 0011 so let's use only last bit for -4 compatibility
       off += snprintf(dst + off, size - off, "* Protocol types supported: ISO/IEC 14443-4\n");
     }
     off += snprintf(dst + off, size - off, "* Frame Waiting Time: %.4g ms\n", 256.0 * 16.0 * (1 << ((pnbi->abtProtocolInfo[2] & 0xf0) >> 4)) / 13560.0);
@@ -591,6 +611,15 @@ snprint_nfc_iso14443b2sr_info(char *dst, size_t size, const nfc_iso14443b2sr_inf
 }
 
 void
+snprint_nfc_iso14443biclass_info(char *dst, size_t size, const nfc_iso14443biclass_info *pnic, bool verbose)
+{
+  (void) verbose;
+  int off = 0;
+  off += snprintf(dst + off, size - off, "                UID: ");
+  snprint_hex(dst + off, size - off, pnic->abtUID, 8);
+}
+
+void
 snprint_nfc_iso14443b2ct_info(char *dst, size_t size, const nfc_iso14443b2ct_info *pnci, bool verbose)
 {
   (void) verbose;
@@ -634,6 +663,9 @@ snprint_nfc_target(char *dst, size_t size, const nfc_target *pnt, bool verbose)
       case NMT_JEWEL:
         snprint_nfc_jewel_info(dst + off, size - off, &pnt->nti.nji, verbose);
         break;
+      case NMT_BARCODE:
+        snprint_nfc_barcode_info(dst + off, size - off, &pnt->nti.nti, verbose);
+        break;
       case NMT_FELICA:
         snprint_nfc_felica_info(dst + off, size - off, &pnt->nti.nfi, verbose);
         break;
@@ -645,6 +677,9 @@ snprint_nfc_target(char *dst, size_t size, const nfc_target *pnt, bool verbose)
         break;
       case NMT_ISO14443B2SR:
         snprint_nfc_iso14443b2sr_info(dst + off, size - off, &pnt->nti.nsi, verbose);
+        break;
+      case NMT_ISO14443BICLASS:
+        snprint_nfc_iso14443biclass_info(dst + off, size - off, &pnt->nti.nhi, verbose);
         break;
       case NMT_ISO14443B2CT:
         snprint_nfc_iso14443b2ct_info(dst + off, size - off, &pnt->nti.nci, verbose);

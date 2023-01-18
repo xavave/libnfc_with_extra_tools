@@ -7,6 +7,7 @@
  * Copyright (C) 2010-2012 Romain Tartière
  * Copyright (C) 2010-2013 Philippe Teuwen
  * Copyright (C) 2012-2013 Ludovic Rousseau
+ * See AUTHORS file for a more comprehensive list of contributors.
  * Additional contributors of this file:
  * Copyright (C) 2013      Evgeny Boger
  *
@@ -110,6 +111,11 @@ pn532_spi_scan(const nfc_context *context, nfc_connstring connstrings[], const s
       if (!pnd) {
         perror("malloc");
         spi_close(sp);
+        iDevice = 0;
+        while ((acPort = acPorts[iDevice++])) {
+          free((void *)acPort);
+        }
+        free(acPorts);
         return 0;
       }
       pnd->driver = &pn532_spi_driver;
@@ -118,6 +124,11 @@ pn532_spi_scan(const nfc_context *context, nfc_connstring connstrings[], const s
         perror("malloc");
         spi_close(sp);
         nfc_device_free(pnd);
+        iDevice = 0;
+        while ((acPort = acPorts[iDevice++])) {
+          free((void *)acPort);
+        }
+        free(acPorts);
         return 0;
       }
       DRIVER_DATA(pnd)->port = sp;
@@ -127,6 +138,11 @@ pn532_spi_scan(const nfc_context *context, nfc_connstring connstrings[], const s
         perror("malloc");
         spi_close(DRIVER_DATA(pnd)->port);
         nfc_device_free(pnd);
+        iDevice = 0;
+        while ((acPort = acPorts[iDevice++])) {
+          free((void *)acPort);
+        }
+        free(acPorts);
         return 0;
       }
       // SAMConfiguration command if needed to wakeup the chip and pn53x_SAMConfiguration check if the chip is a PN532
@@ -417,7 +433,7 @@ pn532_spi_receive(nfc_device *pnd, uint8_t *pbtData, const size_t szDataLen, int
     goto error;
   }
 
-  pnd->last_error = spi_send_receive(DRIVER_DATA(pnd)->port, &pn532_spi_cmd_dataread, 1, abtRxBuf , 4, true);
+  pnd->last_error = spi_send_receive(DRIVER_DATA(pnd)->port, &pn532_spi_cmd_dataread, 1, abtRxBuf, 4, true);
 
   if (pnd->last_error < 0) {
     goto error;

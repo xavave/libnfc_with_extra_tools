@@ -8,6 +8,10 @@ SET(EXAMPLES-SOURCES
   nfc-mfsetuid
   nfc-poll
   nfc-relay
+  nfc-st25tb
+  pn53x-diagnose
+  pn53x-sam
+  pn53x-tamashell
 )
 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../libnfc)
@@ -20,9 +24,15 @@ FOREACH(source ${EXAMPLES-SOURCES})
     SET(RC_COMMENT "${PACKAGE_NAME} example")
     SET(RC_INTERNAL_NAME ${source})
     SET(RC_ORIGINAL_NAME ${source}.exe)
-    SET(RC_FILE_TYPE VFT_APP)
+    # RC_FILE_TYPE: VFT_APP
+    SET(RC_FILE_TYPE 0x00000001L)
     CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/../windows/${source}.rc @ONLY)
     LIST(APPEND TARGETS ${CMAKE_CURRENT_BINARY_DIR}/../windows/${source}.rc)
+	
+	  
+	IF(${source} MATCHES "nfc-st25tb")
+		LIST(APPEND TARGETS ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/getopt.c)
+	ENDIF()
   ENDIF(WIN32)
 
   ADD_EXECUTABLE(${source} ${TARGETS})
@@ -32,11 +42,11 @@ FOREACH(source ${EXAMPLES-SOURCES})
 ENDFOREACH(source)
 
 #install required libraries
-IF(WIN32)
+IF(WIN32 AND NOT MINGW)
   INCLUDE(InstallRequiredSystemLibraries)
   CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/cmake/FixBundle.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/FixBundle.cmake @ONLY)
   INSTALL(SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/FixBundle.cmake)
-ENDIF(WIN32)
+ENDIF()
 
 IF(NOT WIN32)
   # Manuals for the examples

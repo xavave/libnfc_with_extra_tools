@@ -7,6 +7,7 @@
  * Copyright (C) 2010-2012 Romain Tartière
  * Copyright (C) 2010-2013 Philippe Teuwen
  * Copyright (C) 2012-2013 Ludovic Rousseau
+ * See AUTHORS file for a more comprehensive list of contributors.
  * Additional contributors of this file:
  * Copyright (C) 2011      Glenn Ergeerts
  *
@@ -33,6 +34,7 @@
 #define __WINDOWS_H__
 
 #  include <windows.h>
+#  undef interface 
 #  include <winerror.h>
 #  include "win32/err.h"
 #  if defined (__MINGW32__)
@@ -47,7 +49,9 @@
 #    define ENOTSUP       WSAEOPNOTSUPP
 #    define ECONNABORTED  WSAECONNABORTED
 #  else
+#ifndef _MSC_VER
 #    define snprintf sprintf_s
+#endif
 #    define strdup _strdup
 #  endif
 

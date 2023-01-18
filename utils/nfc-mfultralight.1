@@ -20,6 +20,9 @@ Be cautious that some parts of a Ultralight memory can be written only once
 and some parts are used as lock bits, so please read the tag documentation
 before experimenting too much!
 
+To set the UID of a special writeable UID card, edit the first 7 bytes of a dump file and
+then write it back, answering 'Y' to the question 'Write UID bytes?'.
+
 .SH OPTIONS
 .BR r " | " w
 Perform read from (
@@ -36,7 +39,7 @@ Please report any bugs on the
 .B libnfc
 issue tracker at:
 .br
-.BR http://code.google.com/p/libnfc/issues
+.BR https://github.com/nfc-tools/libnfc/issues
 .SH LICENCE
 .B libnfc
 is licensed under the GNU Lesser General Public License (LGPL), version 3.

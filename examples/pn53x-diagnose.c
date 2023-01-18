@@ -7,6 +7,7 @@
  * Copyright (C) 2010-2012 Romain Tartière
  * Copyright (C) 2010-2013 Philippe Teuwen
  * Copyright (C) 2012-2013 Ludovic Rousseau
+ * See AUTHORS file for a more comprehensive list of contributors.
  * Additional contributors of this file:
  *
  * Redistribution and use in source and binary forms, with or without
@@ -95,11 +96,9 @@ main(int argc, const char *argv[])
     pnd = nfc_open(context, connstrings[i]);
 
     if (pnd == NULL) {
-      ERR("%s", "Unable to open NFC device.");
-      nfc_exit(context);
-      exit(EXIT_FAILURE);
+        printf("Unable to open NFC device: %s\n", connstrings[i]);
+        continue;
     }
-
     printf("NFC device [%s] opened.\n", nfc_device_get_name(pnd));
 
     res = pn53x_transceive(pnd, pncmd_diagnose_communication_line_test, sizeof(pncmd_diagnose_communication_line_test), abtRx, szRx, 0);
