@@ -3,4 +3,6 @@ EXTRA_DIST = \
 	FindLIBUSB.cmake \
 	FindPCSC.cmake \
 	UseDoxygen.cmake \
-	LibnfcDrivers.cmake
+	LibnfcDrivers.cmake \
+	FindPThread.cmake
+	

@@ -643,7 +643,7 @@ static uint32_t mfcuk_key_recovery_block(nfc_device *pnd, uint32_t uiUID, uint64
           }
         }
 
-        states_list = lfsr_common_prefix(ptrFoundTagNonceEntry->spoofNrPfx, ptrFoundTagNonceEntry->spoofArEnc, ptrFoundTagNonceEntry->ks, ptrFoundTagNonceEntry->parBitsArr);
+        states_list = lfsr_common_prefix(ptrFoundTagNonceEntry->spoofNrPfx, ptrFoundTagNonceEntry->spoofArEnc, ptrFoundTagNonceEntry->ks, ptrFoundTagNonceEntry->parBitsArr,1);
 	
 	for (i = 0; (states_list) && ((states_list + i)->odd != 0 || (states_list + i)->even != 0) && (i < (MAX_COMMON_PREFIX_STATES<<4)); i++) {
           current_state = states_list + i;
@@ -1473,12 +1473,13 @@ int main(int argc, char *argv[])
       tag_recover_verify.uid = bswap_32_pu8(tag_recover_verify.tag_basic.amb[0].mbm.abtUID);
     }
   }
-
+  // Display libnfc version
+  printf("%s uses libnfc %s\n", argv[0], nfc_version());
   if (!bfOpts['C']) {
     printf("No connection to reader requested (need option -C). Exiting...\n");
     return EXIT_SUCCESS;
   }
-  // Try to open the NFC reader
+
 
   nfc_init(&context);
   if (context == NULL) {
@@ -1486,15 +1487,34 @@ int main(int argc, char *argv[])
       goto error;
   }
 
+  // Try to open the NFC reader
   nfc_connstring connstrings[MAX_DEVICE_COUNT];
   size_t szDeviceFound = nfc_list_devices(context, connstrings, MAX_DEVICE_COUNT);
 
   if (szDeviceFound == 0) {
       printf("No NFC device found.\n");
-      nfc_exit(context);
-      goto error;
   }
-  pnd = nfc_open(context, connstrings[0]);
+  
+  for (i = 0; i < szDeviceFound; i++) {
+      nfc_target ant[MAX_TARGET_COUNT];
+      pnd = nfc_open(context, connstrings[i]);
+      if (pnd == NULL) {
+          printf("Unable to open NFC device: %s\n", connstrings[i]);
+          continue;
+      }
+      else
+      {
+          printf("NFC device: %s found\n", nfc_device_get_name(pnd));
+          break;
+      }
+
+  }
+
+  if (pnd == NULL) {
+      ERR("Error opening NFC reader");
+      nfc_exit(context);
+      exit(EXIT_FAILURE);
+  }
   // READER INITIALIZATION BLOCK
 
   // Initialise NFC device as "initiator"

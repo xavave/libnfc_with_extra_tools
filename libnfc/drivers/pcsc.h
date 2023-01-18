@@ -29,7 +29,8 @@
 #define __NFC_DRIVER_PCSC_H__
 
 #include <nfc/nfc-types.h>
-
+#define 	MAX_ATR_SIZE   33
+#define 	_Win32
 extern const struct nfc_driver pcsc_driver;
 
 #endif // ! __NFC_DRIVER_PCSC_H__

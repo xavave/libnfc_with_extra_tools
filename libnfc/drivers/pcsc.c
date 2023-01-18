@@ -68,7 +68,7 @@
 #define SCARD_ATTR_ICC_TYPE_PER_ATR SCARD_ATTR_VALUE(SCARD_CLASS_ICC_STATE, 0x0304) /**< Single byte indicating smart card type */
 #else
 #ifndef _Win32
-#include <reader.h>
+#include <winscard.h>
 #endif
 #include <winscard.h>
 #endif

@@ -67,7 +67,8 @@
 #if defined(WIN32) /* mingw compiler */
 #include <getopt.h>
 #endif
-
+#define MAX_DEVICE_COUNT 16
+#define MAX_TARGET_COUNT 16
 #define ST25TB_SR_BLOCK_MAX_SIZE	((uint8_t) 4) // for static arrays
 typedef void(*get_info_specific) (uint8_t * systemArea);
 
@@ -197,7 +198,31 @@ int main(int argc, char *argv[])
 		nfc_init(&context);
 		if(context)
 		{
-			pnd = nfc_open(context, NULL);
+			// Display libnfc version
+			printf("%s uses libnfc %s\n", argv[0], nfc_version());
+			// Try to open the NFC reader
+
+			nfc_connstring connstrings[MAX_DEVICE_COUNT];
+			size_t szDeviceFound = nfc_list_devices(context, connstrings, MAX_DEVICE_COUNT);
+
+			if (szDeviceFound == 0) {
+				printf("No NFC device found.\n");
+			}
+			int i;
+			for (i = 0; i < szDeviceFound; i++) {
+				nfc_target ant[MAX_TARGET_COUNT];
+				pnd = nfc_open(context, connstrings[i]);
+				if (pnd == NULL) {
+					printf("Unable to open NFC device: %s\n", connstrings[i]);
+					continue;
+				}
+				else
+				{
+					printf("NFC device: %s found\n", nfc_device_get_name(pnd));
+					break;
+				}
+			}
+
 			if(pnd)
 			{
 				res = nfc_initiator_init(pnd);

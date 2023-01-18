@@ -9,6 +9,7 @@ SET(UTILS-SOURCES
   nfc-relay-picc
   nfc-scan-device
   mfcuk
+ 
 )
 
 ADD_LIBRARY(nfcutils STATIC 
@@ -43,16 +44,25 @@ FOREACH(source ${UTILS-SOURCES})
       LIST(APPEND TARGETS ../contrib/win32/stdlib)
       INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32)
     ENDIF(${source} MATCHES "nfc-scan-device")
-    IF((${source} MATCHES "nfc-read-forum-tag3") OR (${source} MATCHES "mfcuk"))
+    IF((${source} MATCHES "nfc-read-forum-tag3") OR (${source} MATCHES "mfcuk") OR (${source} MATCHES "mfoc"))
       LIST(APPEND TARGETS ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/getopt.c)
     ENDIF()
       IF(${source} MATCHES "mfcuk")
-      LIST(APPEND TARGETS mfcuk_mifare crypto1 crapto1 mfcuk_utils mfcuk_finger mifare)
+      LIST(APPEND TARGETS mfcuk_mifare parity crypto1 crapto1 mfcuk_utils mfcuk_finger mifare)
+    ENDIF()
+     IF(${source} MATCHES "mfoc")
+
+       INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/lzma)
+       INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/hardnested)
+     LIST(APPEND TARGETS ${CMAKE_CURRENT_SOURCE_DIR}/hardnested/hardnested_bf_core_NOSIMD  ${CMAKE_CURRENT_SOURCE_DIR}/hardnested/hardnested_cpu_dispatch ${CMAKE_CURRENT_SOURCE_DIR}/hardnested/hardnested_bitarray_core_NOSIMD ${CMAKE_CURRENT_SOURCE_DIR}/hardnested/tables ${CMAKE_CURRENT_SOURCE_DIR}/hardnested/hardnested_cpu_dispatch ${CMAKE_CURRENT_SOURCE_DIR}/hardnested/hardnested_bruteforce ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/pthread.lib ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/bf_bench_data.bin  bf_bench_data util_posix util ui pthread sched lzma cmdhfmfhard config_w parity crypto1 crapto1 mifare)
+   
     ENDIF()
   ENDIF(WIN32)
 
   ADD_EXECUTABLE(${source} ${TARGETS})
-
+    IF(${source} MATCHES "mfoc")
+         TARGET_LINK_LIBRARIES(${source} ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/pthread ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/lzma)
+    ENDIF()
   TARGET_LINK_LIBRARIES(${source} nfc)
   TARGET_LINK_LIBRARIES(${source} nfcutils)
 

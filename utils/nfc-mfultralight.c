@@ -59,6 +59,7 @@
 #include "nfc-utils.h"
 #include "mifare.h"
 
+#define MAX_DEVICE_COUNT 16
 #define MAX_TARGET_COUNT 16
 #define MAX_UID_LEN 10
 
@@ -583,21 +584,45 @@ main(int argc, const char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  nfc_context *context;
+  nfc_context* context;
   nfc_init(&context);
   if (context == NULL) {
-    ERR("Unable to init libnfc (malloc)");
-    exit(EXIT_FAILURE);
+      ERR("Unable to init libnfc (malloc)");
+      exit(EXIT_FAILURE);
+  }
+  // Display libnfc version
+  printf("%s uses libnfc %s\n", argv[0], nfc_version());
+
+  // Try to open the NFC reader
+
+  nfc_connstring connstrings[MAX_DEVICE_COUNT];
+  size_t szDeviceFound = nfc_list_devices(context, connstrings, MAX_DEVICE_COUNT);
+
+  if (szDeviceFound == 0) {
+      printf("No NFC device found.\n");
+  }
+  int i;
+  for (i = 0; i < szDeviceFound; i++) {
+      nfc_target ant[MAX_TARGET_COUNT];
+      pnd = nfc_open(context, connstrings[i]);
+      if (pnd == NULL) {
+          printf("Unable to open NFC device: %s\n", connstrings[i]);
+          continue;
+      }
+      else
+      {
+          printf("NFC device: %s found\n", nfc_device_get_name(pnd));
+          break;
+      }
+
   }
 
-  // Try to open the NFC device
-  pnd = nfc_open(context, NULL);
   if (pnd == NULL) {
-    ERR("Error opening NFC device");
-    nfc_exit(context);
-    exit(EXIT_FAILURE);
+      ERR("Error opening NFC reader");
+      nfc_exit(context);
+      exit(EXIT_FAILURE);
   }
-  printf("NFC device: %s opened\n", nfc_device_get_name(pnd));
+ 
 
   if (list_passive_targets(pnd)) {
     nfc_perror(pnd, "nfc_device_set_property_bool");
@@ -612,7 +637,7 @@ main(int argc, const char *argv[])
     nfc_exit(context);
     exit(EXIT_FAILURE);
   }
-
+  printf("NFC device: %s opened\n", nfc_device_get_name(pnd));
   // Let the device only try once to find a tag
   if (nfc_device_set_property_bool(pnd, NP_INFINITE_SELECT, false) < 0) {
     nfc_perror(pnd, "nfc_device_set_property_bool");
