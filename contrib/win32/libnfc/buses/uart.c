@@ -177,7 +177,7 @@ uart_receive(serial_port sp, uint8_t *pbtRx, const size_t szRx, void *abort_p, i
   timeouts.WriteTotalTimeoutConstant = timeout_ms;
 
   if (!SetCommTimeouts(((struct serial_port_windows *) sp)->hPort, &timeouts)) {
-    log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_ERROR, "Unable to apply new timeout settings.");
+    log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_ERROR, "%s", "Unable to apply new timeout settings.");
     return NFC_EIO;
   }
   log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "Timeouts are set to %lu ms", timeout_ms);
@@ -186,7 +186,7 @@ uart_receive(serial_port sp, uint8_t *pbtRx, const size_t szRx, void *abort_p, i
   // - According to MSDN, it could be better to implement nfc_abort_command() mechanism using Cancello()
   volatile bool *abort_flag_p = (volatile bool *)abort_p;
   do {
-    log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "ReadFile");
+    log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "%s", "ReadFile");
     res = ReadFile(((struct serial_port_windows *) sp)->hPort, pbtRx + dwTotalBytesReceived,
                    dwBytesToGet,
                    &dwBytesReceived, NULL);
@@ -227,7 +227,7 @@ uart_send(serial_port sp, const uint8_t *pbtTx, const size_t szTx, int timeout)
   timeouts.WriteTotalTimeoutConstant = timeout;
 
   if (!SetCommTimeouts(((struct serial_port_windows *) sp)->hPort, &timeouts)) {
-    log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_ERROR, "Unable to apply new timeout settings.");
+    log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_ERROR, "%s", "Unable to apply new timeout settings.");
     return NFC_EIO;
   }
 
