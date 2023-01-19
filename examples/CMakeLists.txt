@@ -1,5 +1,6 @@
 SET(EXAMPLES-SOURCES
   nfc-anticol
+  nfc-detect-chinese-magic-card 
   nfc-dep-initiator
   nfc-dep-target
   nfc-emulate-forum-tag2
