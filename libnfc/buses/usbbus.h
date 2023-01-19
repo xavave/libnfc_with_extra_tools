@@ -29,7 +29,7 @@
 #ifndef __NFC_BUS_USBBUS_H__
 #define __NFC_BUS_USBBUS_H__
 
-#include <libusb-1.0/libusb.h>
+#include <libusb.h>
 #include <stdlib.h>
 #include "nfc/nfc-types.h"
 
