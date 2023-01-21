@@ -122,10 +122,6 @@ main(int argc, const char *argv[])
       ERR("Unable to init libnfc (malloc)");
       exit(EXIT_FAILURE);
   }
-  // Display libnfc version
-  printf("%s uses libnfc %s\n", argv[0], nfc_version());
-
-  // Try to open the NFC reader
 
   nfc_connstring connstrings[MAX_DEVICE_COUNT];
   size_t szDeviceFound = nfc_list_devices(context, connstrings, MAX_DEVICE_COUNT);

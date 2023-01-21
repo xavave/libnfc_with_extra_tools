@@ -305,20 +305,22 @@ acr122_usb_scan(const nfc_context* context, nfc_connstring connstrings[], const 
     return res;
 }
 
-
+int r;
 static bool
 acr122_usb_get_usb_device_name(struct libusb_device *dev, libusb_device_handle *udev, char *buffer, size_t len)
 {
   *buffer = '\0';
 
   usbbus_get_usb_device_name(dev, udev, buffer, len);
-  uint16_t vendor_id = usbbus_get_vendor_id(dev);
-  uint16_t product_id = usbbus_get_product_id(dev);
+  struct libusb_device_descriptor desc;
+  r = libusb_get_device_descriptor(dev, &desc);
+  if (r < 0)
+      return false;
 
   if (!*buffer) {
     for (size_t n = 0; n < num_acr122_usb_supported_device; n++) {
-      if ((acr122_usb_supported_devices[n].vendor_id == vendor_id) &&
-          (acr122_usb_supported_devices[n].product_id == product_id)) {
+      if ((acr122_usb_supported_devices[n].vendor_id == desc.idVendor) &&
+          (acr122_usb_supported_devices[n].product_id == desc.idProduct)) {
         strncpy(buffer, acr122_usb_supported_devices[n].name, len);
         buffer[len - 1] = '\0';
         return true;

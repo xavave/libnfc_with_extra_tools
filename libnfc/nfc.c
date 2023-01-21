@@ -416,7 +416,9 @@ nfc_list_devices(nfc_context *context, nfc_connstring connstrings[], const size_
       if ((ndr->scan_type == NOT_INTRUSIVE) || ((context->allow_intrusive_scan) && (ndr->scan_type == INTRUSIVE))) {
         size_t _device_found = ndr->scan(context, connstrings + (device_found), connstrings_len - (device_found));
         log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "%ld device(s) found using %s driver", (unsigned long) _device_found, ndr->name);
+       
         if (_device_found > 0) {
+            printf("%ld device(s) found using %s driver with connection string: %s \n", (unsigned long)_device_found, ndr->name, connstrings + (device_found));
           device_found += _device_found;
           if (device_found == connstrings_len)
             break;

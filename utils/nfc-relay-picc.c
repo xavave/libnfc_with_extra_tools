@@ -217,11 +217,14 @@ main(int argc, char *argv[])
   size_t szFound = nfc_list_devices(context, connstrings, MAX_DEVICE_COUNT);
 
   if (initiator_only_mode || target_only_mode) {
-    if (szFound < 1) {
-      ERR("No device found");
-      nfc_exit(context);
-      exit(EXIT_FAILURE);
-    }
+      if (szFound == 0) {
+          printf("No NFC device found.\n");
+          exit(EXIT_FAILURE);
+      }
+      else if (szFound < 0) {
+          nfc_exit(context);
+          return (int)szFound;
+      }
     if ((fd3 = fdopen(3, "r")) == NULL) {
       ERR("Could not open file descriptor 3");
       nfc_exit(context);
@@ -248,8 +251,12 @@ main(int argc, char *argv[])
     // (we hope they're always detected in the same order)
     if ((szFound == 1) || swap_devices) {
       pndInitiator = nfc_open(context, connstrings[0]);
+      if (pndInitiator==NULL)
+          pndInitiator = nfc_open(context, connstrings[1]);
     } else {
       pndInitiator = nfc_open(context, connstrings[1]);
+      if (pndInitiator == NULL)
+          pndInitiator = nfc_open(context, connstrings[0]);
     }
 
     if (pndInitiator == NULL) {

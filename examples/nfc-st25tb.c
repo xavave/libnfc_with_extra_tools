@@ -228,7 +228,7 @@ int main(int argc, char *argv[])
 				res = nfc_initiator_init(pnd);
 				if(res == NFC_SUCCESS)
 				{
-					printf("Reader  : %s - via %s\n  ...wait for card...\n", nfc_device_get_name(pnd), nfc_device_get_connstring(pnd));
+					printf("Reader  : %s - via %s\n  ...wait for card ISO14443-2B ST SRx...\n", nfc_device_get_name(pnd), nfc_device_get_connstring(pnd));
 					
 					res = nfc_initiator_list_passive_targets(pnd, nm, &nt, 1);
 					if(res == 0) // we don't really wanted a NMT_ISO14443B
