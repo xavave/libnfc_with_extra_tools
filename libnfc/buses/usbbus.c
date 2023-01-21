@@ -31,13 +31,13 @@
 #include "usbbus.h"
 #include "log.h"
 #include <libusb-1.0/include/libusb.h>
-
+#define __cplusplus
 
 #define LOG_CATEGORY "libnfc.bus.usbbus"
 #define LOG_GROUP    NFC_LOG_GROUP_DRIVER
 
 static libusb_context *ctx = NULL;
-
+int status;
 uint8_t get_usb_num_configs(struct libusb_device *dev);
 
 int usbbus_prepare()
@@ -142,7 +142,7 @@ size_t usbbus_usb_scan(nfc_connstring connstrings[],
 
         libusb_device_handle *udev;
         int res = libusb_open(dev, &udev);
-        if (res < 0 && udev == NULL) {
+        if (res < 0) {//&& udev == NULL) {
           libusb_unref_device(dev);
           continue;
         }
@@ -324,7 +324,8 @@ void usbbus_close(struct libusb_device *dev, struct libusb_device_handle *dev_ha
 uint16_t usbbus_get_vendor_id(struct libusb_device *dev)
 {
   struct libusb_device_descriptor descriptor;
-  libusb_get_device_descriptor(dev, &descriptor);
+  status = libusb_get_device_descriptor(dev, &descriptor);
+  if (status != 0) return status;
   return descriptor.idVendor;
 }
 

@@ -96,7 +96,7 @@ IF(WIN32)
   IF(MINGW)
     ADD_CUSTOM_COMMAND(
       OUTPUT nfc.lib
-      COMMAND ${DLLTOOL} -d ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/nfc.def -l ${CMAKE_CURRENT_BINARY_DIR}/nfc.lib ${CMAKE_CURRENT_BINARY_DIR}/nfc.dll
+      COMMAND ${DLLTOOL} -d ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/nfc.def -l ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_CONFIG_NAME}nfc.lib ${CMAKE_CURRENT_BINARY_DIR}/nfc.dll
       DEPENDS nfc ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/nfc.def
     )
     ADD_CUSTOM_TARGET(win32lib ALL DEPENDS nfc.lib)
