@@ -82,8 +82,8 @@ static bool bFormatCard = false;
 static bool dWrite = false;
 static bool unlocked = false;
 static uint8_t uiBlocks;
-static uint8_t uiStartBlock = 0;
-static uint8_t uiEndBlock = -1;
+static int32_t uiStartBlock = 0;
+static int32_t uiEndBlock = -1;
 static uint8_t keys[] = {
   0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
   0xd3, 0xf7, 0xd3, 0xf7, 0xd3, 0xf7,
