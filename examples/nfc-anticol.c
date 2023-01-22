@@ -144,7 +144,7 @@ transmit_bytes(const uint8_t* pbtTx, const size_t szTx)
 		}
 	}
 	else {
-		if ((res = nfc_initiator_transceive_bytes(pnd, pbtTx, szTx, abtRx, sizeof(abtRx), -1)) < 0)
+		if ((res = nfc_initiator_transceive_bytes(pnd, pbtTx, szTx, abtRx, sizeof(abtRx), 0)) < 0)
 			return false;
 	}
 	szRx = res;

@@ -243,8 +243,6 @@ main(int argc, char* argv[])
 				sscanf(tmp, "%02x", &c);
 				abtData[i] = (char)c;
 			}
-			int i;
-
 			char uc4ByteUID[4] = { 0x00,0x00,0x00,0x00 };
 			Convert7ByteUIDTo4ByteNUID(abtData, uc4ByteUID);
 			printf("7-byte UID = ");
@@ -255,21 +253,22 @@ main(int argc, char* argv[])
 			for (i = 0; i < 4; i++)
 				printf("%02X", uc4ByteUID[i]);
 
+			abtData[4] = abtData[0] ^ abtData[1] ^ abtData[2] ^ abtData[3];
 			printf("\n");
 			iso14443a_crc_append(abtData, 16);
 		}
-		else {
+		else
+		{
 			ERR("%s is not supported option.", argv[arg]);
 			print_usage(argv);
 			exit(EXIT_FAILURE);
 		}
 	}
-
-	nfc_context* context;
 	if (intrusiveScan > -1)
 	{ // This has to be done before the call to nfc_init()
 		setenv("LIBNFC_INTRUSIVE_SCAN", intrusiveScan == 0 ? "no" : intrusiveScan == 1 ? "yes" : "no", 1);
 	}
+	nfc_context* context;
 	nfc_init(&context);
 	if (context == NULL) {
 		ERR("Unable to init libnfc (malloc)");
