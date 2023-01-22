@@ -96,8 +96,7 @@ uint8_t abtData[18] = { 0x01,  0x23,  0x45,  0x67,  0x00,  0x08,  0x04,  0x00,  
 uint8_t abtBlank[18] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x07, 0x80, 0x69, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x36, 0xCC };
 
 
-static  bool
-transmit_bits(const uint8_t* pbtTx, const size_t szTxBits)
+static bool transmit_bits(const uint8_t* pbtTx, const size_t szTxBits)
 {
 	// Show transmitted command
 	if (!quiet_output) {
@@ -116,10 +115,39 @@ transmit_bits(const uint8_t* pbtTx, const size_t szTxBits)
 	// Succesful transfer
 	return true;
 }
+uint16_t UpdateCrc(uint8_t ch, uint16_t* lpwCrc)
+{
+	ch = (ch ^ (uint8_t)((*lpwCrc) & 0x00FF));
+	ch = (ch ^ (ch << 4));
+	*lpwCrc = (*lpwCrc >> 8) ^ ((uint16_t)ch << 8) ^ ((uint16_t)ch << 3) ^ ((uint16_t)ch >> 4);
+	return(*lpwCrc);
+}
+static void ComputeCrc(uint16_t wCrcPreset, uint8_t* Data, int Length,uint16_t* usCRC)
+{
+	uint8_t chBlock;
+	do {
+		chBlock = *Data++;
+		UpdateCrc(chBlock, &wCrcPreset);
+	} while (--Length);
+	*usCRC = wCrcPreset;
+	return;
+}
+static void Convert7ByteUIDTo4ByteNUID(uint8_t* uc7ByteUID, uint8_t* uc4ByteUID)
+{
+	uint16_t CRCPreset = 0x6363;
+	uint16_t CRCCalculated = 0x0000;
+	ComputeCrc(CRCPreset, uc7ByteUID, 3, &CRCCalculated);
+	uc4ByteUID[0] = (CRCCalculated >> 8) & 0xFF;//MSB
+	uc4ByteUID[1] = CRCCalculated & 0xFF; //LSB
+	CRCPreset = CRCCalculated;
+	ComputeCrc(CRCPreset, uc7ByteUID + 3, 4, &CRCCalculated);
+	uc4ByteUID[2] = (CRCCalculated >> 8) & 0xFF;//MSB
+	uc4ByteUID[3] = CRCCalculated & 0xFF; //LSB
+	uc4ByteUID[0] = uc4ByteUID[0] | 0x0F;
+	uc4ByteUID[0] = uc4ByteUID[0] & 0xEF;
+}
 
-
-static  bool
-transmit_bytes(const uint8_t* pbtTx, const size_t szTx)
+static  bool transmit_bytes(const uint8_t* pbtTx, const size_t szTx)
 {
 	// Show transmitted command
 	if (!quiet_output) {
@@ -147,9 +175,9 @@ print_usage(char* argv[])
 	printf("Options:\n");
 	printf("\t-h\tHelp. Print this message.\n");
 	printf("\t-f\tFormat. Delete all data (set to 0xFF) and reset ACLs to default.\n");
-	printf("\t-i [value 0 or 1]. Force intrusive scan.\n");
+	printf("\t-i\t[value 0 or 1]. Force intrusive scan.\n");
 	printf("\t-q\tQuiet mode. Suppress output of READER and CARD data (improves timing).\n");
-	printf("\n\tSpecify UID (4 HEX bytes) to set UID, or leave blank for default '01234567'.\n");
+	printf("\n\tSpecify UID (4 HEX OR 7 HEX bytes) to set UID, or leave blank for default '01234567'.\n");
 	printf("\n\tSpecify BLOCK0 (16 HEX bytes) to set content of Block0. CRC (Byte 4) is recalculated an overwritten'.\n");
 	printf("\tThis utility can be used to recover cards that have been damaged by writing bad\n");
 	printf("\tdata (e.g. wrong BCC), thus making them non-selectable by most tools/readers.\n");
@@ -199,8 +227,8 @@ main(int argc, char* argv[])
 			abtData[4] = abtData[0] ^ abtData[1] ^ abtData[2] ^ abtData[3];
 			iso14443a_crc_append(abtData, 16);
 		}
-		else if (strlen(argv[arg]) == 8) {
-			for (i = 0; i < 4; ++i) {
+		else if (strlen(argv[arg]) == 32) {
+			for (i = 0; i < 16; ++i) {
 				memcpy(tmp, argv[arg] + i * 2, 2);
 				sscanf(tmp, "%02x", &c);
 				abtData[i] = (char)c;
@@ -208,14 +236,26 @@ main(int argc, char* argv[])
 			abtData[4] = abtData[0] ^ abtData[1] ^ abtData[2] ^ abtData[3];
 			iso14443a_crc_append(abtData, 16);
 		}
-		//to finish: write 7 bytes UID
+		//to test: write 7 bytes UID
 		else if (strlen(argv[arg]) == 14) {
 			for (i = 0; i < 7; ++i) {
 				memcpy(tmp, argv[arg] + i * 2, 2);
 				sscanf(tmp, "%02x", &c);
 				abtData[i] = (char)c;
 			}
-			abtData[4] = abtData[0] ^ abtData[1] ^ abtData[2] ^ abtData[3];
+			int i;
+
+			char uc4ByteUID[4] = { 0x00,0x00,0x00,0x00 };
+			Convert7ByteUIDTo4ByteNUID(abtData, uc4ByteUID);
+			printf("7-byte UID = ");
+			for (i = 0; i < 7; i++)
+				printf("%02X", abtData[i]);
+
+			printf("\t4-byte FNUID = ");
+			for (i = 0; i < 4; i++)
+				printf("%02X", uc4ByteUID[i]);
+
+			printf("\n");
 			iso14443a_crc_append(abtData, 16);
 		}
 		else {
