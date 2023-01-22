@@ -59,7 +59,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #endif
-
+#ifdef _MSC_VER
+#include "getopt.h"
+#endif
 #include <nfc/nfc.h>
 
 #include "mifare.h"
@@ -71,11 +73,12 @@ static nfc_target nt;
 static mifare_param mp;
 static mifare_classic_tag mtKeys;
 static mifare_classic_tag mtDump;
-static bool bUseKeyA;
-static bool bUseKeyFile;
-static bool bForceKeyFile;
-static bool bTolerateFailures;
-static bool bFormatCard;
+static bool bUseKeyA = true;
+static bool bUseKeyFile = false;
+static bool bForceKeyFile = false;
+static int intrusiveScan = -1;
+static bool bTolerateFailures = true;
+static bool bFormatCard = false;
 static bool dWrite = false;
 static bool unlocked = false;
 static uint8_t uiBlocks;
@@ -112,8 +115,7 @@ uint8_t abtHalt[4] = { 0x50, 0x00, 0x00, 0x00 };
 uint8_t abtUnlock1[1] = { 0x40 };
 uint8_t abtUnlock2[1] = { 0x43 };
 
-static bool
-transmit_bits(const uint8_t* pbtTx, const size_t szTxBits)
+static bool transmit_bits(const uint8_t* pbtTx, const size_t szTxBits)
 {
 	// Show transmitted command
 	printf("Sent bits:     ");
@@ -129,9 +131,7 @@ transmit_bits(const uint8_t* pbtTx, const size_t szTxBits)
 	return true;
 }
 
-
-static bool
-transmit_bytes(const uint8_t* pbtTx, const size_t szTx)
+static bool transmit_bytes(const uint8_t* pbtTx, const size_t szTx)
 {
 	// Show transmitted command
 	printf("Sent bits:     ");
@@ -148,16 +148,14 @@ transmit_bytes(const uint8_t* pbtTx, const size_t szTx)
 	return true;
 }
 
-static void
-print_success_or_failure(bool bFailure, uint32_t* uiBlockCounter)
+static void print_success_or_failure(bool bFailure, uint32_t* uiBlockCounter)
 {
 	printf("%c", (bFailure) ? 'x' : '.');
 	if (uiBlockCounter && !bFailure)
 		*uiBlockCounter += 1;
 }
 
-static bool
-is_first_block(uint32_t uiBlock)
+static bool is_first_block(uint32_t uiBlock)
 {
 	// Test if we are in the small or big sectors
 	if (uiBlock < 128)
@@ -166,8 +164,7 @@ is_first_block(uint32_t uiBlock)
 		return ((uiBlock) % 16 == 0);
 }
 
-static bool
-is_trailer_block(uint32_t uiBlock)
+static bool is_trailer_block(uint32_t uiBlock)
 {
 	// Test if we are in the small or big sectors
 	if (uiBlock < 128)
@@ -176,8 +173,7 @@ is_trailer_block(uint32_t uiBlock)
 		return ((uiBlock + 1) % 16 == 0);
 }
 
-static uint32_t
-get_trailer_block(uint32_t uiFirstBlock)
+static uint32_t get_trailer_block(uint32_t uiFirstBlock)
 {
 	// Test if we are in the small or big sectors
 	uint32_t trailer_block = 0;
@@ -190,8 +186,7 @@ get_trailer_block(uint32_t uiFirstBlock)
 	return trailer_block;
 }
 
-static bool
-authenticate(uint32_t uiBlock)
+static bool authenticate(uint32_t uiBlock)
 {
 	mifare_cmd mc;
 
@@ -240,8 +235,7 @@ authenticate(uint32_t uiBlock)
 	return false;
 }
 
-static bool
-unlock_card(bool write)
+static bool unlock_card(bool write)
 {
 	// Configure the CRC
 	if (nfc_device_set_property_bool(pnd, NP_HANDLE_CRC, false) < 0) {
@@ -297,8 +291,7 @@ unlock_card(bool write)
 	return true;
 }
 
-static int
-get_rats(void)
+static int get_rats(void)
 {
 	int res;
 	uint8_t abtRats[2] = { 0xe0, 0x50 };
@@ -538,112 +531,162 @@ print_usage(const char* pcProgramName)
 {
 	printf("Usage: ");
 #ifndef _WIN32
-	printf("%s f|r|R|w|W a|b u|U<01ab23cd> <dump.mfd> [<keys.mfd> [f] [v]]\n", pcProgramName);
+	printf("%s -p [f|r|R|w|W] -e [a|A|b|B] -u [01AB23CD] -i [0|1] -d <dump.mfd> -k <keys.mfd> -F -v\n", pcProgramName);
 #else
-	printf("%s f|r|R|w|W a|b u|U<01ab23cd> <dump.mfd> [<keys.mfd> [f]]\n", pcProgramName);
+	printf("%s -p [f|r|R|w|W] -e [a|A|b|B] -u [01AB23CD] -i [0|1] -d <dump.mfd> -k <keys.mfd> -F\n", pcProgramName);
 #endif
-	printf("  f|r|R|w|W     - Perform format (f) or read from (r) or unlocked read from (R) or write to (w) or block 0 write to (W) card\n");
+	printf(" -p [f|r|R|w|W] - Perform format (f) or read from (r) or unlocked read from (R) or write to (w) or block 0 write to (W) card\n");
 	printf("                  *** format will reset all keys to FFFFFFFFFFFF and all data to 00 and all ACLs to default\n");
 	printf("                  *** unlocked read does not require authentication and will reveal A and B keys\n");
 	printf("                  *** note that block 0 write will attempt to overwrite block 0 including UID\n");
 	printf("                  *** block 0 write only works with special Mifare cards (Chinese clones)\n");
-	printf("  a|A|b|B       - Use A or B keys for action; Halt on errors (a|b) or tolerate errors (A|B)\n");
-	printf("  u|U           - Use any (u) uid or supply a uid specifically as U01ab23cd.\n");
-	printf("  <dump.mfd>    - MiFare Dump (MFD) used to write (card to MFD) or (MFD to card)\n");
-	printf("  <keys.mfd>    - MiFare Dump (MFD) that contain the keys (optional)\n");
-	printf("  f             - Force using the keyfile even if UID does not match (optional)\n");
+	printf(" -e [a|A|b|B]   - Use A or B keys for action; Halt on errors (a|b) or tolerate errors (A|B)\n");
+	printf(" -u [UID]       - Use any (-u) uid or supply a uid specifically as -u 01AB23CD.\n");
+	printf(" -i [0|1]       - force intrusive scan ON or OFF (0 for NO or 1 for YES).\n");
+	printf(" -d <dump.mfd>  - MiFare Dump (MFD) used to write (card to MFD) or (MFD to card)\n");
+	printf(" -k <keys.mfd>  - MiFare Dump (MFD) that contain the keys (optional)\n");
+	printf(" -f             - Force using the keyfile even if UID does not match (optional)\n");
+
+
 #ifndef _WIN32
-	printf("  v             - Sends libnfc log output to console (optional)\n");
+	printf("  -v            - Sends libnfc log output to console (optional)\n");
 #endif
 	printf("Examples: \n\n");
 	printf("  Read card to file, using key A:\n\n");
-	printf("    %s r a u mycard.mfd\n\n", pcProgramName);
+	printf("    %s -p r -e a -u -d mycard.mfd\n\n", pcProgramName);
+	printf("  Search tag readers with intrusive scan, then read card to file, using key A:\n\n");
+	printf("    %s -p r -e a -u -d mycard.mfd -i 1\n\n", pcProgramName);
 	printf("  Write file to blank card, using key A:\n\n");
-	printf("    %s w a u mycard.mfd\n\n", pcProgramName);
+	printf("    %s -p w -e a -u -d mycard.mfd\n\n", pcProgramName);
 	printf("  Write new data and/or keys to previously written card, using key A:\n\n");
-	printf("    %s w a u newdata.mfd mycard.mfd\n\n", pcProgramName);
+	printf("    %s -p w -e a -u -d newdata.mfd -k mycard.mfd\n\n", pcProgramName);
 	printf("  Format/wipe card (note two passes required to ensure writes for all ACL cases):\n\n");
-	printf("    %s f A u dummy.mfd keyfile.mfd f\n", pcProgramName);
-	printf("    %s f B u dummy.mfd keyfile.mfd f\n\n", pcProgramName);
+	printf("    %s -p f -e A -u -k keyfile.mfd f\n", pcProgramName);
+	printf("    %s -p f -e B -u -k keyfile.mfd f\n\n", pcProgramName);
 	printf("  Read card to file, using key A and uid 0x01 0xab 0x23 0xcd:\n\n");
-	printf("    %s r a U01ab23cd mycard.mfd\n\n", pcProgramName);
+	printf("    %s -p r -e a -u 01ab23cd -d mycard.mfd\n\n", pcProgramName);
 }
+static char* keysFileName = "";
+static char* dumpFileName = "";
 
-
-int
-main(int argc, const char* argv[])
+int main(int argc, const char* argv[])
 {
 	action_t atAction = ACTION_USAGE;
 	uint8_t* pbtUID;
 	uint8_t _tag_uid[4];
 	uint8_t* tag_uid = _tag_uid;
-
 	bool    unlock = false;
-
-	if (argc < 2) {
-		print_usage(argv[0]);
-		exit(EXIT_FAILURE);
-	}
-	const char* command = argv[1];
-
-	if (argc < 5) {
-		print_usage(argv[0]);
-		exit(EXIT_FAILURE);
-	}
-	if (strcmp(command, "r") == 0 || strcmp(command, "R") == 0) {
-		atAction = ACTION_READ;
-		if (strcmp(command, "R") == 0)
-			unlock = true;
-		bUseKeyA = tolower((int)((unsigned char)*(argv[2]))) == 'a';
-		bTolerateFailures = tolower((int)((unsigned char)*(argv[2]))) != (int)((unsigned char)*(argv[2]));
-		bUseKeyFile = (argc > 5) && strcmp(argv[5], "v");
-		bForceKeyFile = ((argc > 6) && (strcmp((char*)argv[6], "f") == 0));
-	}
-	else if (strcmp(command, "w") == 0 || strcmp(command, "W") == 0 || strcmp(command, "f") == 0) {
-		atAction = ACTION_WRITE;
-		if (strcmp(command, "W") == 0)
-			unlock = true;
-		bFormatCard = (strcmp(command, "f") == 0);
-		bUseKeyA = tolower((int)((unsigned char)*(argv[2]))) == 'a';
-		bTolerateFailures = tolower((int)((unsigned char)*(argv[2]))) != (int)((unsigned char)*(argv[2]));
-		bUseKeyFile = (argc > 5) && strcmp(argv[5], "v");
-		bForceKeyFile = ((argc > 6) && (strcmp((char*)argv[6], "f") == 0));
-	}
-	if (argv[3][0] == 'U') {
-		unsigned long int _uid;
-
-		if (strlen(argv[3]) != 9) {
-			printf("Error, illegal tag specification, use U01ab23cd for example.\n");
-			print_usage(argv[0]);
-			exit(EXIT_FAILURE);
-		}
-		_uid = strtoul(argv[3] + 1, NULL, 16);
-		tag_uid[0] = (_uid & 0xff000000UL) >> 24;
-		tag_uid[1] = (_uid & 0x00ff0000UL) >> 16;
-		tag_uid[2] = (_uid & 0x0000ff00UL) >> 8;
-		tag_uid[3] = (_uid & 0x000000ffUL);
-		printf("Attempting to use specific UID: 0x%2x 0x%2x 0x%2x 0x%2x\n",
-			tag_uid[0], tag_uid[1], tag_uid[2], tag_uid[3]);
-	}
-	else {
-		tag_uid = NULL;
-	}
+	bool verbose = false;
+	//File pointers for the keyfile 
+	FILE* pfKeys;
 
 #ifndef _WIN32
 	// Send noise from lib to /dev/null
-	bool verbose = false;
-	if (argv[7]) {
-		if (strcmp(argv[7], "v") == 0) verbose = true;
-	}
-	else {
-		if ((strcmp(argv[6], "v")) || (strcmp(argv[5], "v")) == 0) verbose = true;
-	}
 	if (!verbose) {
 		int fd = open("/dev/null", O_WRONLY);
 		dup2(fd, 2);
 		close(fd);
 	}
 #endif
+	int ch;
+	// Parse command line arguments
+	//	printf("%s -p [f|r|R|w|W] -e [a|A|b|B] -u [01AB23CD] -i [0|1] -d <dump.mfd> -k <keys.mfd> -F\n", pcProgramName);
+	while ((ch = getopt(argc, argv, "p:e:u:i:d:k:fv")) != -1) {
+		switch (ch) {
+		case 'f':
+			bForceKeyFile = true;
+			break;
+		case 'v':
+			verbose = true;
+			break;
+		case 'p':
+			// Perform action
+			if (optarg == NULL)
+			{
+				ERR("argument [f|r|R|w|W] missing after -p (action to perform)");
+				exit(EXIT_FAILURE);
+			}
+			if (strcmp(optarg, "r") == 0 || strcmp(optarg, "R") == 0) {
+				atAction = ACTION_READ;
+				if (strcmp(optarg, "R") == 0)
+					unlock = true;
+			}
+			else if (strcmp(optarg, "w") == 0 || strcmp(optarg, "W") == 0 || strcmp(optarg, "f") == 0)
+			{
+				atAction = ACTION_WRITE;
+				if (strcmp(optarg, "W") == 0)
+					unlock = true;
+				bFormatCard = strcmp(optarg, "f") == 0;
+			}
+			break;
+		case 'e':
+			if (optarg == NULL)
+			{
+				ERR("argument missing after -e [a|A|b|B]  - Use A or B keys for action; Halt on errors (a|b) or tolerate errors (A|B)");
+				exit(EXIT_FAILURE);
+			}
+			bUseKeyA = strcmp(tolower(optarg), optarg) != 0;
+			bTolerateFailures = strcmp(tolower(optarg), optarg) != 0;
+			break;
+		case 'i':
+			if (strcmp(optarg, "0") == 0)
+				intrusiveScan = false;
+			else 	if (strcmp(optarg, "1") == 0)
+				intrusiveScan = true;
+			else
+			{
+				ERR("missing argument 0 or 1  after -i (intrusive tag reader devices scan)");
+				exit(EXIT_FAILURE);
+			}
+			break;
+		case 'k':
+			if (optarg == NULL || !(pfKeys = fopen(optarg, "rb"))) {
+				fprintf(stderr, "Cannot open keyfile: %s, exiting\n", optarg);
+				exit(EXIT_FAILURE);
+			}
+			keysFileName = optarg;
+			bUseKeyFile = true;
+			break;
+		case 'd':
+			if (optarg == NULL)
+			{
+				fprintf(stderr, "Missing dumpfile path: %s, exiting\n", optarg);
+				exit(EXIT_FAILURE);
+			}
+			dumpFileName = optarg;
+			break;
+		case 'u':
+			if (optarg == NULL)
+			{
+				tag_uid = NULL;
+			}
+			else
+			{
+				if (strlen(optarg) != 9) {
+					printf("Error, illegal tag specification, use U01ab23cd for example.\n");
+					print_usage(argv[0]);
+					exit(EXIT_FAILURE);
+				}
+				unsigned long int _uid = strtoul(optarg + 1, NULL, 16);
+				tag_uid[0] = (_uid & 0xff000000UL) >> 24;
+				tag_uid[1] = (_uid & 0x00ff0000UL) >> 16;
+				tag_uid[2] = (_uid & 0x0000ff00UL) >> 8;
+				tag_uid[3] = (_uid & 0x000000ffUL);
+				printf("Attempting to use specific UID: 0x%2x 0x%2x 0x%2x 0x%2x\n",
+					tag_uid[0], tag_uid[1], tag_uid[2], tag_uid[3]);
+			}
+			break;
+		case 'h':
+			print_usage(argv[0]);
+			exit(EXIT_SUCCESS);
+			break;
+		default:
+			print_usage(argv[0]);
+			exit(EXIT_FAILURE);
+			break;
+		}
+
+	}
 
 	if (atAction == ACTION_USAGE) {
 		print_usage(argv[0]);
@@ -651,17 +694,21 @@ main(int argc, const char* argv[])
 	}
 	// We don't know yet the card size so let's read only the UID from the keyfile for the moment
 	if (bUseKeyFile) {
-		FILE* pfKeys = fopen(argv[5], "rb");
+
 		if (pfKeys == NULL) {
-			printf("Could not open keys file: %s\n", argv[5]);
 			exit(EXIT_FAILURE);
 		}
 		if (fread(&mtKeys, 1, 4, pfKeys) != 4) {
-			printf("Could not read UID from key file: %s\n", argv[5]);
+			printf("Could not read UID from key file: %s\n", keysFileName);
 			fclose(pfKeys);
 			exit(EXIT_FAILURE);
 		}
 		fclose(pfKeys);
+	}
+	if (intrusiveScan > -1)
+	{
+		// This has to be done before the call to nfc_init()
+		setenv("LIBNFC_INTRUSIVE_SCAN", intrusiveScan == 0 ? "no" : intrusiveScan == 1 ? "yes" : "no", 1);
 	}
 	nfc_init(&context);
 	if (context == NULL) {
@@ -810,13 +857,13 @@ main(int argc, const char* argv[])
 	printf("Guessing size: seems to be a %lu-byte card\n", (unsigned long)((uiBlocks + 1) * sizeof(mifare_classic_block)));
 
 	if (bUseKeyFile) {
-		FILE* pfKeys = fopen(argv[5], "rb");
+		FILE* pfKeys = fopen(keysFileName, "rb");
 		if (pfKeys == NULL) {
-			printf("Could not open keys file: %s\n", argv[5]);
+			printf("Could not open keys file: %s\n", keysFileName);
 			exit(EXIT_FAILURE);
 		}
 		if (fread(&mtKeys, 1, (uiBlocks + 1) * sizeof(mifare_classic_block), pfKeys) != (uiBlocks + 1) * sizeof(mifare_classic_block)) {
-			printf("Could not read keys file: %s\n", argv[5]);
+			printf("Could not read keys file: %s\n", keysFileName);
 			fclose(pfKeys);
 			exit(EXIT_FAILURE);
 		}
@@ -827,16 +874,16 @@ main(int argc, const char* argv[])
 		memset(&mtDump, 0x00, sizeof(mtDump));
 	}
 	else {
-		FILE* pfDump = fopen(argv[4], "rb");
+		FILE* pfDump = fopen(dumpFileName, "rb");
 
 		if (pfDump == NULL) {
-			printf("Could not open dump file: %s\n", argv[4]);
+			printf("Could not open dump file: %s\n", dumpFileName);
 			exit(EXIT_FAILURE);
 
 		}
 
 		if (fread(&mtDump, 1, (uiBlocks + 1) * sizeof(mifare_classic_block), pfDump) != (uiBlocks + 1) * sizeof(mifare_classic_block)) {
-			printf("Could not read dump file: %s\n", argv[4]);
+			printf("Could not read dump file: %s\n", dumpFileName);
 			fclose(pfDump);
 			exit(EXIT_FAILURE);
 		}
@@ -846,17 +893,18 @@ main(int argc, const char* argv[])
 
 	if (atAction == ACTION_READ) {
 		if (read_card(unlock)) {
-			printf("Writing data to file: %s ...", argv[4]);
+			printf("Writing data to file: %s ...", dumpFileName);
 			fflush(stdout);
-			FILE* pfDump = fopen(argv[4], "wb");
+			FILE* pfDump = fopen(dumpFileName, "wb");
 			if (pfDump == NULL) {
-				printf("Could not open dump file: %s\n", argv[4]);
+				printf("Could not open dump file: %s\n", dumpFileName);
 				nfc_close(pnd);
 				nfc_exit(context);
 				exit(EXIT_FAILURE);
 			}
-			if (fwrite(&mtDump, 1, (uiBlocks + 1) * sizeof(mifare_classic_block), pfDump) != ((uiBlocks + 1) * sizeof(mifare_classic_block))) {
-				printf("\nCould not write to file: %s\n", argv[4]);
+			if (fwrite(&mtDump, 1, (uiBlocks + 1) * sizeof(mifare_classic_block), pfDump)
+				!= ((uiBlocks + 1) * sizeof(mifare_classic_block))) {
+				printf("\nCould not write to file: %s\n", dumpFileName);
 				fclose(pfDump);
 				nfc_close(pnd);
 				nfc_exit(context);

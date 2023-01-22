@@ -256,17 +256,18 @@ BOOL is_port_available(int nPort)
 // Path to the serial port is OS-dependant.
 // Try to guess what we should use.
 #define MAX_SERIAL_PORT_WIN 255
+#define CUSTOM_SERIAL_PORT_WIN 15
 char **
 uart_list_ports(void)
 {
-  char **availablePorts = malloc((1 + MAX_SERIAL_PORT_WIN) * sizeof(char *));
+  char **availablePorts = malloc((1 + CUSTOM_SERIAL_PORT_WIN) * sizeof(char *));
   if (!availablePorts) {
     perror("malloc");
     return availablePorts;
   }
   int curIndex = 0;
   int i;
-  for (i = 1; i <= MAX_SERIAL_PORT_WIN; i++) {
+  for (i = 1; i <= CUSTOM_SERIAL_PORT_WIN; i++) {
     if (is_port_available(i)) {
       availablePorts[curIndex] = (char *)malloc(10);
       if (!availablePorts[curIndex]) {

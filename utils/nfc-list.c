@@ -64,6 +64,9 @@ print_usage(const char* progname)
 {
 	printf("usage: %s [-v] [-t X]\n", progname);
 	printf("  -v\t verbose display\n");
+	printf("  -i\t[value 0 or 1]\t force intrusive scan.\n");
+	printf("\t   0: Force intrusive scan OFF\n");
+	printf("\t   1: Force intrusive scan ON\n");
 	printf("  -t X\t poll only for types according to bitfield X:\n");
 	printf("\t   1: ISO14443A\n");
 	printf("\t   2: Felica (212 kbps)\n");
@@ -89,13 +92,8 @@ main(int argc, const char* argv[])
 	int res = 0;
 	int mask = 0x3ff;
 	int arg;
+	int intrusiveScan = -1;
 
-	nfc_context* context;
-	nfc_init(&context);
-	if (context == NULL) {
-		ERR("Unable to init libnfc (malloc)");
-		exit(EXIT_FAILURE);
-	}
 
 	// Get commandline options
 	for (arg = 1; arg < argc; arg++) {
@@ -105,6 +103,20 @@ main(int argc, const char* argv[])
 		}
 		else if (0 == strcmp(argv[arg], "-v")) {
 			verbose = true;
+		}
+
+		else if ((0 == strcmp(argv[arg], "-i")) && (arg + 1 < argc)) {
+			arg++;
+			if (strcmp((char*)argv[arg], "1") == 0)
+				intrusiveScan = 1;
+			else if (strcmp((char*)argv[arg], "0") == 0)
+				intrusiveScan = 0;
+			else
+			{
+				ERR("-i %s is invalid value for intrusive scan.", argv[arg]);
+				print_usage(argv[0]);
+				exit(EXIT_FAILURE);
+			}
 		}
 		else if ((0 == strcmp(argv[arg], "-t")) && (arg + 1 < argc)) {
 			arg++;
@@ -123,6 +135,17 @@ main(int argc, const char* argv[])
 			print_usage(argv[0]);
 			exit(EXIT_FAILURE);
 		}
+	}
+	nfc_context* context;
+	if (intrusiveScan > -1)
+	{
+		// This has to be done before the call to nfc_init()
+		setenv("LIBNFC_INTRUSIVE_SCAN", intrusiveScan == 0 ? "no" : intrusiveScan == 1 ? "yes" : "no", 1);
+	}
+	nfc_init(&context);
+	if (context == NULL) {
+		ERR("Unable to init libnfc (malloc)");
+		exit(EXIT_FAILURE);
 	}
 
 	// Display libnfc version

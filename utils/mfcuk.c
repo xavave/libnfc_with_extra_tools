@@ -196,7 +196,7 @@ static inline uint64_t bswap_64(uint64_t x)
 #define MAX_FRAME_LEN       264
 
 #ifdef DEBUG
-#  warning Debug mode is enabled
+//warning Debug mode is enabled
 #  define WARN(...) fprintf(stderr, "%s %d: ", __FILE__, __LINE__ ); warnx ("  WARNING: " __VA_ARGS__ )
 #  define ERR(...)  fprintf(stderr, "%s %d: ", __FILE__, __LINE__ ); warnx ("  ERROR " __VA_ARGS__ )
 #else

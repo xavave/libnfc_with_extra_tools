@@ -81,7 +81,7 @@ nfc_context_new(void)
 
   // Set default context values
   res->allow_autoscan = true;
-  res->allow_intrusive_scan = true;
+  res->allow_intrusive_scan = false;
 #ifdef DEBUG
   res->log_level = 3;
 #else

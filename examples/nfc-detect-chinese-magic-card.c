@@ -173,12 +173,14 @@ print_usage(char* argv[])
 	printf("\t-h\tHelp. Print this message.\n");
 	printf("\t-q\tQuiet mode. Suppress output of READER and EMULATOR data (improves timing).\n");
 	printf("\t-s\tSuper Quiet mode. just display SUCCESS or nothing.\n");
+	printf("\t-i\tvalue: [0 or 1]. Force intrusive scan.\n");
 }
 
 int
 main(int argc, char* argv[])
 {
 	int arg;
+	int intrusiveScan = -1;
 	nfc_target nt;
 	// Get commandline options
 	for (arg = 1; arg < argc; arg++) {
@@ -192,6 +194,19 @@ main(int argc, char* argv[])
 		else if (0 == strcmp(argv[arg], "-s")) {
 			super_quiet_output = true;
 		}
+		else if ((0 == strcmp(argv[arg], "-i")) && (arg + 1 < argc)) {
+			arg++;
+			if (strcmp((char*)argv[arg], "1") == 0)
+				intrusiveScan = 1;
+			else if (strcmp((char*)argv[arg], "0") == 0)
+				intrusiveScan = 0;
+			else
+			{
+				ERR("-i %s is invalid value for intrusive scan.", argv[arg]);
+				print_usage(argv[0]);
+				exit(EXIT_FAILURE);
+			}
+		}
 		else {
 			ERR("%s is not supported option.", argv[arg]);
 			print_usage(argv);
@@ -201,6 +216,10 @@ main(int argc, char* argv[])
 	if (super_quiet_output)
 		quiet_output = true;
 	nfc_context* context;
+	if (intrusiveScan > -1)
+	{   // This has to be done before the call to nfc_init()
+		setenv("LIBNFC_INTRUSIVE_SCAN", intrusiveScan == 0 ? "no" : intrusiveScan == 1 ? "yes" : "no", 1);
+	}
 	nfc_init(&context);
 	if (context == NULL) {
 		ERR("Unable to init libnfc (malloc)");
@@ -312,7 +331,7 @@ main(int argc, char* argv[])
 			{
 				printf("This is NOT a backdoored rewritable UID chinese card\n");
 			}
-		
+
 		}
 	}
 	if (pnd != NULL)

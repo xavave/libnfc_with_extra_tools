@@ -65,7 +65,8 @@ print_usage(const char *argv[])
   printf("Options:\n");
   printf("\t-h\tPrint this help message.\n");
   printf("\t-v\tSet verbose display.\n");
-  printf("\t-i\tAllow intrusive scan.\n");
+  printf("\t-i\tForce allow intrusive scan.\n");
+  
 }
 
 int
@@ -87,7 +88,12 @@ main(int argc, const char *argv[])
     } else if (0 == strcmp(argv[arg], "-i")) {
       // This has to be done before the call to nfc_init()
       setenv("LIBNFC_INTRUSIVE_SCAN", "yes", 1);
-    } else {
+    } 
+    else if (0 == strcmp(argv[arg], "-d")) {
+        // This has to be done before the call to nfc_init()
+        setenv("LIBNFC_INTRUSIVE_SCAN", "no", 1);
+    }
+    else {
       ERR("%s is not supported option.", argv[arg]);
       print_usage(argv);
       exit(EXIT_FAILURE);

@@ -34,6 +34,12 @@ FOREACH(source ${EXAMPLES-SOURCES})
 	IF(${source} MATCHES "nfc-st25tb")
 		LIST(APPEND TARGETS ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/getopt.c)
 	ENDIF()
+
+     IF(${source} MATCHES "nfc-detect-chinese-magic-card" OR (${source} MATCHES "nfc-mfsetuid"))
+      LIST(APPEND TARGETS ../contrib/win32/stdlib)
+      INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32)
+    ENDIF()
+
   ENDIF(WIN32)
 
   ADD_EXECUTABLE(${source} ${TARGETS})
