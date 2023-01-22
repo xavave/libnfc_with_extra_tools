@@ -199,8 +199,18 @@ main(int argc, char* argv[])
 			abtData[4] = abtData[0] ^ abtData[1] ^ abtData[2] ^ abtData[3];
 			iso14443a_crc_append(abtData, 16);
 		}
-		else if (strlen(argv[arg]) == 32) {
-			for (i = 0; i < 16; ++i) {
+		else if (strlen(argv[arg]) == 8) {
+			for (i = 0; i < 4; ++i) {
+				memcpy(tmp, argv[arg] + i * 2, 2);
+				sscanf(tmp, "%02x", &c);
+				abtData[i] = (char)c;
+			}
+			abtData[4] = abtData[0] ^ abtData[1] ^ abtData[2] ^ abtData[3];
+			iso14443a_crc_append(abtData, 16);
+		}
+		//to finish: write 7 bytes UID
+		else if (strlen(argv[arg]) == 14) {
+			for (i = 0; i < 7; ++i) {
 				memcpy(tmp, argv[arg] + i * 2, 2);
 				sscanf(tmp, "%02x", &c);
 				abtData[i] = (char)c;
