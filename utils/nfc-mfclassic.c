@@ -82,6 +82,8 @@ static bool bFormatCard = false;
 static bool dWrite = false;
 static bool unlocked = false;
 static uint8_t uiBlocks;
+static uint8_t uiStartBlock = 0;
+static uint8_t uiEndBlock = -1;
 static uint8_t keys[] = {
   0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
   0xd3, 0xf7, 0xd3, 0xf7, 0xd3, 0xf7,
@@ -338,10 +340,10 @@ read_card(bool read_unlocked)
 			read_unlocked = 0;
 		}
 	}
-
-	printf("Reading out %d blocks |", uiBlocks + 1);
+	int32_t blockCount = uiEndBlock - uiStartBlock;
+	printf("Reading out %d blocks |", blockCount + 1);
 	// Read the card from end to begin
-	for (iBlock = uiBlocks; iBlock >= 0; iBlock--) {
+	for (iBlock = uiEndBlock; iBlock >= uiStartBlock; iBlock--) {
 		// Authenticate everytime we reach a trailer block
 		if (is_trailer_block(iBlock)) {
 			if (bFailure) {
@@ -396,14 +398,13 @@ read_card(bool read_unlocked)
 			return false;
 	}
 	printf("|\n");
-	printf("Done, %d of %d blocks read.\n", uiReadBlocks, uiBlocks + 1);
+	printf("Done, %d of %d blocks read.\n", uiReadBlocks, blockCount + 1);
 	fflush(stdout);
 
 	return true;
 }
 
-static bool
-write_card(bool write_block_zero)
+static bool write_card(bool write_block_zero)
 {
 	uint32_t uiBlock;
 	bool bFailure = false;
@@ -413,10 +414,10 @@ write_card(bool write_block_zero)
 	if (write_block_zero) {
 		unlock_card(true);
 	}
-
-	printf("Writing %d blocks |", uiBlocks + write_block_zero);
+	int32_t blockCount = uiEndBlock - uiStartBlock;
+	printf("Writing %d blocks |", blockCount + write_block_zero);
 	// Completely write the card, but skipping block 0 if we don't need to write on it
-	for (uiBlock = 0; uiBlock <= uiBlocks; uiBlock++) {
+	for (uiBlock = uiStartBlock; uiBlock <= uiEndBlock; uiBlock++) {
 		//Determine if we have to write block 0
 		if (!write_block_zero && uiBlock == 0) {
 			continue;
@@ -514,7 +515,7 @@ write_card(bool write_block_zero)
 	}
 
 	printf("|\n");
-	printf("Done, %d of %d blocks written.\n", uiWriteBlocks, uiBlocks + 1);
+	printf("Done, %d of %d blocks written.\n", uiWriteBlocks, blockCount + 1);
 	fflush(stdout);
 
 	return true;
@@ -545,6 +546,12 @@ print_usage(const char* pcProgramName)
 	printf(" -i [0|1]       - force intrusive scan ON or OFF (0 for NO or 1 for YES).\n");
 	printf(" -d <dump.mfd>  - MiFare Dump (MFD) used to write (card to MFD) or (MFD to card)\n");
 	printf(" -k <keys.mfd>  - MiFare Dump (MFD) that contain the keys (optional)\n");
+	printf(" -s <0..x>      - Write from specified block (example: -s 4 (decimal number)) x depends on the tag size\n");
+	printf(" -t <0..x>      - Write to specified block (example: -t 12 (decimal number))  x depends on the tag size\n");
+	printf("                  *** max block: 19 for 320 bytes tags\n");
+	printf("                  *** max block: 63 for 1K/2K tags\n");
+	printf("                  *** max block: 127 for MIFARE Plus 2K tags\n");
+	printf("                  *** max block: 255 for 4K tags\n");
 	printf(" -f             - Force using the keyfile even if UID does not match (optional)\n");
 
 
@@ -588,10 +595,10 @@ int main(int argc, const char* argv[])
 		close(fd);
 	}
 #endif
-	int ch;
+	int ch, tmpStartBlock, tmpEndBlock;
 	// Parse command line arguments
 	//	printf("%s -p [f|r|R|w|W] -e [a|A|b|B] -u [01AB23CD] -i [0|1] -d <dump.mfd> -k <keys.mfd> -F\n", pcProgramName);
-	while ((ch = getopt(argc, argv, "p:e:u:i:d:k:fv")) != -1) {
+	while ((ch = getopt(argc, argv, "p:e:u:i:d:k:s:t:fv")) != -1) {
 		switch (ch) {
 		case 'f':
 			bForceKeyFile = true;
@@ -638,6 +645,16 @@ int main(int argc, const char* argv[])
 				ERR("missing argument 0 or 1  after -i (intrusive tag reader devices scan)");
 				exit(EXIT_FAILURE);
 			}
+			break;
+		case 's':
+			tmpStartBlock = atoi(optarg);
+			if (tmpStartBlock >= 0)
+				uiStartBlock = tmpStartBlock;
+			break;
+		case 't':
+			tmpEndBlock = atoi(optarg);
+			if (tmpEndBlock >= 0)
+				uiEndBlock = tmpEndBlock;
 			break;
 		case 'k':
 			if (optarg == NULL || !(pfKeys = fopen(optarg, "rb"))) {
@@ -841,6 +858,7 @@ int main(int argc, const char* argv[])
 	else
 		// 1K/2K, checked through RATS
 		uiBlocks = 0x3f;
+
 	// Testing RATS
 	int res;
 	if ((res = get_rats()) > 0) {
@@ -855,6 +873,26 @@ int main(int argc, const char* argv[])
 	else
 		printf("RATS support: no\n");
 	printf("Guessing size: seems to be a %lu-byte card\n", (unsigned long)((uiBlocks + 1) * sizeof(mifare_classic_block)));
+
+	if (uiEndBlock == -1)
+	{
+		uiEndBlock = uiBlocks;
+	}
+	else
+	{
+		if (uiEndBlock > uiBlocks)
+		{
+			printf("Wrong max block for this tag (%d), it should be less or equal: %d\n", uiEndBlock, uiBlocks);
+			fclose(pfKeys);
+			exit(EXIT_FAILURE);
+		}
+	}
+	if (uiStartBlock > uiEndBlock)
+	{
+		printf("Wrong start block for this tag (%d), it should be less or equal end block: %d\n", uiStartBlock, uiEndBlock);
+		fclose(pfKeys);
+		exit(EXIT_FAILURE);
+	}
 
 	if (bUseKeyFile) {
 		FILE* pfKeys = fopen(keysFileName, "rb");
