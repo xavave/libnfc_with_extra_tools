@@ -95,8 +95,10 @@ static uint8_t keys[] = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   0xab, 0xcd, 0xef, 0x12, 0x34, 0x56
 };
-static uint8_t default_key[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-static uint8_t default_acl[] = { 0xff, 0x07, 0x80, 0x69 };
+static const uint8_t default_key[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+static const uint8_t _default_acl[] = { 0xff, 0x07, 0x80, 0x69 };
+uint8_t* default_acl = _default_acl;
+uint8_t* custom_acl = _default_acl;
 
 static const nfc_modulation nmMifare = {
   .nmt = NMT_ISO14443A,
@@ -324,8 +326,7 @@ static int get_rats(void)
 	return res;
 }
 
-static bool
-read_card(bool read_unlocked)
+static bool read_card(bool read_unlocked)
 {
 	int32_t iBlock;
 	bool bFailure = false;
@@ -340,10 +341,9 @@ read_card(bool read_unlocked)
 			read_unlocked = 0;
 		}
 	}
-	int32_t blockCount = uiEndBlock - uiStartBlock;
-	printf("Reading out %d blocks |", blockCount + 1);
+	printf("Reading out %d blocks |", uiBlocks + 1);
 	// Read the card from end to begin
-	for (iBlock = uiEndBlock; iBlock >= uiStartBlock; iBlock--) {
+	for (iBlock = uiBlocks; iBlock >= 0; iBlock--) {
 		// Authenticate everytime we reach a trailer block
 		if (is_trailer_block(iBlock)) {
 			if (bFailure) {
@@ -398,7 +398,7 @@ read_card(bool read_unlocked)
 			return false;
 	}
 	printf("|\n");
-	printf("Done, %d of %d blocks read.\n", uiReadBlocks, blockCount + 1);
+	printf("Done, %d of %d blocks read.\n", uiReadBlocks, uiBlocks + 1);
 	fflush(stdout);
 
 	return true;
@@ -409,7 +409,7 @@ static bool write_card(bool write_block_zero)
 	uint32_t uiBlock;
 	bool bFailure = false;
 	uint32_t uiWriteBlocks = 0;
-
+	bool bUseCustomACL = memcmp(custom_acl, default_acl, sizeof(default_acl)) != 0;
 	//Determine if we have to unlock the card
 	if (write_block_zero) {
 		unlock_card(true);
@@ -459,7 +459,7 @@ static bool write_card(bool write_block_zero)
 			else {
 				// Copy the keys over from our key dump and store the retrieved access bits
 				memcpy(mp.mpt.abtKeyA, mtDump.amb[uiBlock].mbt.abtKeyA, sizeof(mp.mpt.abtKeyA));
-				memcpy(mp.mpt.abtAccessBits, mtDump.amb[uiBlock].mbt.abtAccessBits, sizeof(mp.mpt.abtAccessBits));
+				memcpy(mp.mpt.abtAccessBits, bUseCustomACL ? custom_acl : mtDump.amb[uiBlock].mbt.abtAccessBits, sizeof(mp.mpt.abtAccessBits));
 				memcpy(mp.mpt.abtKeyB, mtDump.amb[uiBlock].mbt.abtKeyB, sizeof(mp.mpt.abtKeyB));
 			}
 
@@ -552,6 +552,7 @@ print_usage(const char* pcProgramName)
 	printf("                  *** max block: 63 for 1K/2K tags\n");
 	printf("                  *** max block: 127 for MIFARE Plus 2K tags\n");
 	printf("                  *** max block: 255 for 4K tags\n");
+	printf(" -a [ACL]       - Force custom ACL (4 bytes) instead of default FF078069.\n");
 	printf(" -f             - Force using the keyfile even if UID does not match (optional)\n");
 
 
@@ -598,7 +599,7 @@ int main(int argc, const char* argv[])
 	int ch, tmpStartBlock, tmpEndBlock;
 	// Parse command line arguments
 	//	printf("%s -p [f|r|R|w|W] -e [a|A|b|B] -u [01AB23CD] -i [0|1] -d <dump.mfd> -k <keys.mfd> -F\n", pcProgramName);
-	while ((ch = getopt(argc, argv, "p:e:u:i:d:k:s:t:fv")) != -1) {
+	while ((ch = getopt(argc, argv, "p:e:u:i:d:k:s:t:a:fv")) != -1) {
 		switch (ch) {
 		case 'f':
 			bForceKeyFile = true;
@@ -679,8 +680,8 @@ int main(int argc, const char* argv[])
 			}
 			else
 			{
-				if (strlen(optarg) != 9) {
-					printf("Error, illegal tag specification, use U01ab23cd for example.\n");
+				if (strlen(optarg) != 8) {
+					printf("Error, illegal custom UID specification, use - u 01AB23CD for example.\n");
 					print_usage(argv[0]);
 					exit(EXIT_FAILURE);
 				}
@@ -691,6 +692,22 @@ int main(int argc, const char* argv[])
 				tag_uid[3] = (_uid & 0x000000ffUL);
 				printf("Attempting to use specific UID: 0x%2x 0x%2x 0x%2x 0x%2x\n",
 					tag_uid[0], tag_uid[1], tag_uid[2], tag_uid[3]);
+			}
+		case 'a':
+			if (optarg == NULL || (strlen(optarg) != 8))
+			{
+				printf("Error, illegal custom ACL specification, use -a FF078069 for example.\n");
+				print_usage(argv[0]);
+				exit(EXIT_FAILURE);
+			}
+			else
+			{
+				unsigned long int _acl = strtoul(optarg + 1, NULL, 16);
+				custom_acl[0] = (_acl & 0xff000000UL) >> 24;
+				custom_acl[1] = (_acl & 0x00ff0000UL) >> 16;
+				custom_acl[2] = (_acl & 0x0000ff00UL) >> 8;
+				custom_acl[3] = (_acl & 0x000000ffUL);
+				printf("Attempting to use specific ACL: 0x%2x 0x%2x 0x%2x 0x%2x\n", custom_acl[0], custom_acl[1], custom_acl[2], custom_acl[3]);
 			}
 			break;
 		case 'h':
