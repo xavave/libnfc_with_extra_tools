@@ -97,9 +97,12 @@ static uint8_t keys[] = {
 };
 static const uint8_t default_key[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 static const uint8_t _default_acl[] = { 0xff, 0x07, 0x80, 0x69 };
-uint8_t* default_acl = _default_acl;
-uint8_t* custom_acl = _default_acl;
-
+static uint8_t* default_acl = _default_acl;
+static uint8_t* custom_acl = _default_acl;
+static uint8_t* pbtUID;
+static uint8_t _tag_uid[4] = { 0x12, 0x34, 0x56, 0x78 };
+static uint8_t* tag_uid = _tag_uid;
+//-p W -e A -u -d "C:\Program Files (x86)\AVXTEC\MWT\dumps\blank_tag.dump" -k "G:\work\Mifare-Windows-Tool\MifareWindowsTool\bin\Debug\dumps\Dump_01234567.mfd" -f -i 0   -s 5  -t 5
 static const nfc_modulation nmMifare = {
   .nmt = NMT_ISO14443A,
   .nbr = NBR_106,
@@ -542,7 +545,8 @@ print_usage(const char* pcProgramName)
 	printf("                  *** note that block 0 write will attempt to overwrite block 0 including UID\n");
 	printf("                  *** block 0 write only works with special Mifare cards (Chinese clones)\n");
 	printf(" -e [a|A|b|B]   - Use A or B keys for action; Halt on errors (a|b) or tolerate errors (A|B)\n");
-	printf(" -u [UID]       - Use any (-u) uid or supply a uid specifically as -u 01AB23CD.\n");
+	printf(" -u [0|UID]     - Use any uid (-u 0) \n");
+	printf("                  *** or supply a custom UID as -u 01AB23CD.\n");
 	printf(" -i [0|1]       - force intrusive scan ON or OFF (0 for NO or 1 for YES).\n");
 	printf(" -d <dump.mfd>  - MiFare Dump (MFD) used to write (card to MFD) or (MFD to card)\n");
 	printf(" -k <keys.mfd>  - MiFare Dump (MFD) that contain the keys (optional)\n");
@@ -580,9 +584,7 @@ static char* dumpFileName = "";
 int main(int argc, const char* argv[])
 {
 	action_t atAction = ACTION_USAGE;
-	uint8_t* pbtUID;
-	uint8_t _tag_uid[4];
-	uint8_t* tag_uid = _tag_uid;
+
 	bool    unlock = false;
 	bool verbose = false;
 	//File pointers for the keyfile 
@@ -597,8 +599,9 @@ int main(int argc, const char* argv[])
 	}
 #endif
 	int ch, tmpStartBlock, tmpEndBlock;
+	tag_uid = NULL;
 	// Parse command line arguments
-	//	printf("%s -p [f|r|R|w|W] -e [a|A|b|B] -u [01AB23CD] -i [0|1] -d <dump.mfd> -k <keys.mfd> -F\n", pcProgramName);
+	//	printf("%s -p [f|r|R|w|W] -e [a|A|b|B] -u [0|01AB23CD] -i [0|1] -d <dump.mfd> -k <keys.mfd> -F\n", pcProgramName);
 	while ((ch = getopt(argc, argv, "p:e:u:i:d:k:s:t:a:fv")) != -1) {
 		switch (ch) {
 		case 'f':
@@ -614,12 +617,12 @@ int main(int argc, const char* argv[])
 				ERR("argument [f|r|R|w|W] missing after -p (action to perform)");
 				exit(EXIT_FAILURE);
 			}
-			if (strcmp(optarg, "r") == 0 || strcmp(optarg, "R") == 0) {
+			if (stricmp(optarg, "r") == 0) {
 				atAction = ACTION_READ;
 				if (strcmp(optarg, "R") == 0)
 					unlock = true;
 			}
-			else if (strcmp(optarg, "w") == 0 || strcmp(optarg, "W") == 0 || strcmp(optarg, "f") == 0)
+			else if (stricmp(optarg, "w") == 0 || strcmp(optarg, "f") == 0)
 			{
 				atAction = ACTION_WRITE;
 				if (strcmp(optarg, "W") == 0)
@@ -628,19 +631,19 @@ int main(int argc, const char* argv[])
 			}
 			break;
 		case 'e':
-			if (optarg == NULL)
+			if (optarg == NULL || stricmp(optarg, "A") != 0 && stricmp(optarg, "B") != 0)
 			{
-				ERR("argument missing after -e [a|A|b|B]  - Use A or B keys for action; Halt on errors (a|b) or tolerate errors (A|B)");
+				ERR("missing or invalid argument after -e [a|A|b|B]  - Use A or B keys for action; Halt on errors (a|b) or tolerate errors (A|B)");
 				exit(EXIT_FAILURE);
 			}
-			bUseKeyA = strcmp(tolower(optarg), optarg) != 0;
-			bTolerateFailures = strcmp(tolower(optarg), optarg) != 0;
+			bUseKeyA = (stricmp(optarg, "A") == 0);
+			bTolerateFailures = (strcmp(optarg, "A") == 0) || (strcmp(optarg, "B") == 0);
 			break;
 		case 'i':
 			if (strcmp(optarg, "0") == 0)
-				intrusiveScan = false;
+				intrusiveScan = 0;
 			else 	if (strcmp(optarg, "1") == 0)
-				intrusiveScan = true;
+				intrusiveScan = 1;
 			else
 			{
 				ERR("missing argument 0 or 1  after -i (intrusive tag reader devices scan)");
@@ -674,25 +677,22 @@ int main(int argc, const char* argv[])
 			dumpFileName = optarg;
 			break;
 		case 'u':
-			if (optarg == NULL)
-			{
-				tag_uid = NULL;
+
+			if (optarg == NULL || (strlen(optarg) != 8 && strlen(optarg) != 1)) {
+				printf("Error, illegal custom UID specification, use -u 01AB23CD for example.\n");
+				print_usage(argv[0]);
+				exit(EXIT_FAILURE);
 			}
-			else
+			unsigned long int _uid = strtoul(optarg + 1, NULL, 16);
+			if (_uid != 0)
 			{
-				if (strlen(optarg) != 8) {
-					printf("Error, illegal custom UID specification, use - u 01AB23CD for example.\n");
-					print_usage(argv[0]);
-					exit(EXIT_FAILURE);
-				}
-				unsigned long int _uid = strtoul(optarg + 1, NULL, 16);
 				tag_uid[0] = (_uid & 0xff000000UL) >> 24;
 				tag_uid[1] = (_uid & 0x00ff0000UL) >> 16;
 				tag_uid[2] = (_uid & 0x0000ff00UL) >> 8;
 				tag_uid[3] = (_uid & 0x000000ffUL);
-				printf("Attempting to use specific UID: 0x%2x 0x%2x 0x%2x 0x%2x\n",
-					tag_uid[0], tag_uid[1], tag_uid[2], tag_uid[3]);
+				printf("Attempting to use specific UID: 0x%2x 0x%2x 0x%2x 0x%2x\n", tag_uid[0], tag_uid[1], tag_uid[2], tag_uid[3]);
 			}
+			break;
 		case 'a':
 			if (optarg == NULL || (strlen(optarg) != 8))
 			{

@@ -122,7 +122,7 @@ uint16_t UpdateCrc(uint8_t ch, uint16_t* lpwCrc)
 	*lpwCrc = (*lpwCrc >> 8) ^ ((uint16_t)ch << 8) ^ ((uint16_t)ch << 3) ^ ((uint16_t)ch >> 4);
 	return(*lpwCrc);
 }
-static void ComputeCrc(uint16_t wCrcPreset, uint8_t* Data, int Length,uint16_t* usCRC)
+static void ComputeCrc(uint16_t wCrcPreset, uint8_t* Data, int Length, uint16_t* usCRC)
 {
 	uint8_t chBlock;
 	do {
@@ -207,10 +207,10 @@ main(int argc, char* argv[])
 		}
 		else if ((0 == strcmp(argv[arg], "-i")) && (arg + 1 < argc)) {
 			arg++;
-			if (strcmp((char*)argv[arg], "1") == 0)
-				intrusiveScan = 1;
-			else if (strcmp((char*)argv[arg], "0") == 0)
+			if (strcmp((char*)argv[arg], "0") == 0)
 				intrusiveScan = 0;
+			else if (strcmp((char*)argv[arg], "1") == 0)
+				intrusiveScan = 1;
 			else
 			{
 				ERR("-i %s is invalid value for intrusive scan.", argv[arg]);
