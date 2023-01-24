@@ -36,7 +36,7 @@ FOREACH(source ${EXAMPLES-SOURCES})
 	ENDIF()
 
      IF(${source} MATCHES "nfc-detect-chinese-magic-card" OR (${source} MATCHES "nfc-mfsetuid"))
-      LIST(APPEND TARGETS ../contrib/win32/stdlib)
+      LIST(APPEND TARGETS ../contrib/win32/stdlib.c)
       INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32)
     ENDIF()
 

@@ -62,7 +62,7 @@ FOREACH(source ${UTILS-SOURCES})
 
   ADD_EXECUTABLE(${source} ${TARGETS})
     IF(${source} MATCHES "mfoc")
-         TARGET_LINK_LIBRARIES(${source} ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/pthread ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/lzma)
+         TARGET_LINK_LIBRARIES(${source} ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/pthreadVSE3 ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/lzma)
     ENDIF()
   TARGET_LINK_LIBRARIES(${source} nfc)
   TARGET_LINK_LIBRARIES(${source} nfcutils)
