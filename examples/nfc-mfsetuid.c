@@ -125,9 +125,10 @@ uint16_t UpdateCrc(uint8_t ch, uint16_t* lpwCrc)
 static void ComputeCrc(uint16_t wCrcPreset, uint8_t* Data, int Length, uint16_t* usCRC)
 {
 	uint8_t chBlock;
+	uint16_t testRet;
 	do {
 		chBlock = *Data++;
-		UpdateCrc(chBlock, &wCrcPreset);
+		testRet = UpdateCrc(chBlock, &wCrcPreset);
 	} while (--Length);
 	*usCRC = wCrcPreset;
 	return;
@@ -189,7 +190,7 @@ main(int argc, char* argv[])
 {
 	int      arg, i;
 	bool     format = false;
-	unsigned int c;
+	uint32_t c;
 	char     tmp[3] = { 0x00, 0x00, 0x00 };
 	int intrusiveScan = -1;
 
@@ -243,15 +244,15 @@ main(int argc, char* argv[])
 				sscanf(tmp, "%02x", &c);
 				abtData[i] = (char)c;
 			}
-			char uc4ByteUID[4] = { 0x00,0x00,0x00,0x00 };
+			uint8_t uc4ByteUID[4] = { 0x00,0x00,0x00,0x00 };
 			Convert7ByteUIDTo4ByteNUID(abtData, uc4ByteUID);
 			printf("7-byte UID = ");
 			for (i = 0; i < 7; i++)
-				printf("%02X", abtData[i]);
+				printf("%02x", abtData[i]);
 
 			printf("\t4-byte FNUID = ");
 			for (i = 0; i < 4; i++)
-				printf("%02X", uc4ByteUID[i]);
+				printf("%02x", uc4ByteUID[i]);
 
 			abtData[4] = abtData[0] ^ abtData[1] ^ abtData[2] ^ abtData[3];
 			printf("\n");
