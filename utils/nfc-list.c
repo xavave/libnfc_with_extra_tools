@@ -136,12 +136,13 @@ main(int argc, const char* argv[])
 			exit(EXIT_FAILURE);
 		}
 	}
-	nfc_context* context;
+
 	if (intrusiveScan > -1)
 	{
 		// This has to be done before the call to nfc_init()
 		setenv("LIBNFC_INTRUSIVE_SCAN", intrusiveScan == 0 ? "no" : intrusiveScan == 1 ? "yes" : "no", 1);
 	}
+	nfc_context* context;
 	nfc_init(&context);
 	if (context == NULL) {
 		ERR("Unable to init libnfc (malloc)");

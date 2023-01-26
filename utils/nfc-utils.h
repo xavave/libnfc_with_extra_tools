@@ -100,5 +100,6 @@ void    print_hex_bits(const uint8_t *pbtData, const size_t szBits);
 void    print_hex_par(const uint8_t *pbtData, const size_t szBits, const uint8_t *pbtDataPar);
 
 void    print_nfc_target(const nfc_target *pnt, bool verbose);
+long long unsigned int bytes_to_num(uint8_t * src, uint32_t len);
 
 #endif

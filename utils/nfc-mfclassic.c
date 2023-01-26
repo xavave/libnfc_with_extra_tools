@@ -66,6 +66,7 @@
 
 #include "mifare.h"
 #include "nfc-utils.h"
+#include "include/nfc-mfclassic.h"
 
 static nfc_context* context;
 static nfc_device* pnd;
@@ -220,25 +221,41 @@ static bool authenticate(uint32_t uiBlock)
 		if (nfc_initiator_mifare_cmd(pnd, mc, uiBlock, &mp))
 			return true;
 
+		// try to guess the right key anyway
+		return tryToGuessKey(mc, uiBlock);
 		// If formatting or not using key file, try to guess the right key
 	}
 	else if (bFormatCard || !bUseKeyFile) {
-		for (size_t key_index = 0; key_index < num_keys; key_index++) {
-			memcpy(mp.mpa.abtKey, keys + (key_index * 6), 6);
-			if (nfc_initiator_mifare_cmd(pnd, mc, uiBlock, &mp)) {
-				if (bUseKeyA)
-					memcpy(mtKeys.amb[uiBlock].mbt.abtKeyA, &mp.mpa.abtKey, sizeof(mtKeys.amb[uiBlock].mbt.abtKeyA));
-				else
-					memcpy(mtKeys.amb[uiBlock].mbt.abtKeyB, &mp.mpa.abtKey, sizeof(mtKeys.amb[uiBlock].mbt.abtKeyB));
-				return true;
-			}
-			if (nfc_initiator_select_passive_target(pnd, nmMifare, nt.nti.nai.abtUid, nt.nti.nai.szUidLen, NULL) <= 0) {
-				ERR("tag was removed");
-				return false;
-			}
-		}
+
+		return tryToGuessKey(mc, uiBlock);
+
 	}
 
+	//return false;
+}
+static bool tryToGuessKey(mifare_cmd mc, uint32_t uiBlock)
+{
+	printf("Key from dump file not found. Trying to guess the right key...\n");
+	for (size_t key_index = 0; key_index < num_keys; key_index++) {
+		memcpy(mp.mpa.abtKey, keys + (key_index * 6), 6);
+		if (nfc_initiator_mifare_cmd(pnd, mc, uiBlock, &mp)) {
+			if (bUseKeyA)
+			{
+				memcpy(mtKeys.amb[uiBlock].mbt.abtKeyA, &mp.mpa.abtKey, sizeof(mtKeys.amb[uiBlock].mbt.abtKeyA));
+			}
+			else
+			{
+				memcpy(mtKeys.amb[uiBlock].mbt.abtKeyB, &mp.mpa.abtKey, sizeof(mtKeys.amb[uiBlock].mbt.abtKeyB));
+			}
+			fprintf(stdout," Found Key: %c [%012llx]\n", (bUseKeyA ? 'A' : 'B'), bytes_to_num(mp.mpa.abtKey, 6));
+			return true;
+		}
+		if (nfc_initiator_select_passive_target(pnd, nmMifare, nt.nti.nai.abtUid, nt.nti.nai.szUidLen, NULL) <= 0) {
+			ERR("tag was removed");
+			return false;
+		}
+	}
+	printf("no key found.\n");
 	return false;
 }
 

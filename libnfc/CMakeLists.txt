@@ -107,9 +107,10 @@ IF(WIN32)
   # On Windows the shared (runtime) library should be either in the same 
   # directory as the excutables or in the path, we add it to same directory
   INSTALL(TARGETS nfc RUNTIME DESTINATION bin COMPONENT libraries)
-
+    
   # At compile time we need the .LIB file, we place it in the lib directory
-  INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/nfc.lib DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT libraries)
+  INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}/nfc.lib DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT libraries)
+
 ELSE(WIN32)
   INSTALL(TARGETS nfc LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT libraries)
 ENDIF(WIN32)
