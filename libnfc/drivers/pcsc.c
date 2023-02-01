@@ -87,7 +87,7 @@
 static const char *stringify_error(const LONG pcscError);
 
 static const char *supported_devices[] = {
-  "ACS ACR122",         // ACR122U & Touchatag, last version
+  "ACS ACR122 ",         // ACR122U & Touchatag, last version
   "ACS ACR 38U-CCID",   // Touchatag, early version
   "ACS ACR38U-CCID",    // Touchatag, early version, under MacOSX
   "ACS AET65",          // Touchatag using CCID driver version >= 1.4.6
@@ -450,7 +450,7 @@ pcsc_scan(const nfc_context *context, nfc_connstring connstrings[], const size_t
   while ((acDeviceNames[szPos] != '\0') && (device_found < connstrings_len)) {
     bool bSupported = false;
     for (i = 0; supported_devices[i] && !bSupported; i++) {
-      int     l = strlen(acDeviceNames + szPos);
+      int     l = strlen(supported_devices[i]);
       bSupported = 0 == strncmp(supported_devices[i], acDeviceNames + szPos, l);
     }
 
