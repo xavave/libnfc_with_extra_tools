@@ -30,8 +30,8 @@
 #include <stdlib.h>
 #include "usbbus.h"
 #include "log.h"
-#include <libusb-1.0/include/libusb.h>
-#define __cplusplus
+#include <../libusb/libusb/libusb.h>
+//#define __cplusplus
 
 #define LOG_CATEGORY "libnfc.bus.usbbus"
 #define LOG_GROUP    NFC_LOG_GROUP_DRIVER

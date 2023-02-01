@@ -48,7 +48,7 @@ Thanks to d18c7db and Okko for example code
 #include <sys/types.h>
 #endif
 #include <nfc/nfc.h>
-#include <libusb.h>
+#include <../libusb/libusb/libusb.h>
 #include "nfc-internal.h"
 #include "buses/usbbus.h"
 #include "chips/pn53x.h"

@@ -87,7 +87,16 @@
 #include "nfc-internal.h"
 #include "target-subr.h"
 #include "drivers.h"
+#  ifdef __cplusplus
+extern  "C" {
+   /* class nfc {
+    public:
+        nfc::nfc()
+        {
+        };*/
+       
 
+#  endif                        // __cplusplus
 
 #if defined (DRIVER_ACR122_PCSC_ENABLED)
 #  include "drivers/acr122_pcsc.h"
@@ -256,6 +265,97 @@ nfc_exit(nfc_context *context)
 
   nfc_context_free(context);
 }
+/** @ingroup dev
+ * @brief Scan for discoverable supported devices (ie. only available for some drivers)
+ * @return Returns the number of devices found.
+ * @param context The context to operate on, or NULL for the default context.
+ * @param connstrings array of \a nfc_connstring.
+ * @param connstrings_len size of the \a connstrings array.
+ *
+ */
+size_t
+nfc_list_devices(nfc_context* context, nfc_connstring connstrings[], const size_t connstrings_len)
+{
+    size_t device_found = 0;
+
+#ifdef CONFFILES
+    // Load manually configured devices (from config file and env variables)
+    // TODO From env var...
+    for (uint32_t i = 0; i < context->user_defined_device_count; i++) {
+        if (context->user_defined_devices[i].optional) {
+            // let's make sure the device exists
+            nfc_device* pnd = NULL;
+
+#ifdef ENVVARS
+            char* env_log_level = getenv("LIBNFC_LOG_LEVEL");
+            char* old_env_log_level = NULL;
+            // do it silently
+            if (env_log_level) {
+                if ((old_env_log_level = malloc(strlen(env_log_level) + 1)) == NULL) {
+                    log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_ERROR, "%s", "Unable to malloc()");
+                    return 0;
+                }
+                strcpy(old_env_log_level, env_log_level);
+            }
+            setenv("LIBNFC_LOG_LEVEL", "0", 1);
+#endif // ENVVARS
+
+            pnd = nfc_open(context, context->user_defined_devices[i].connstring);
+
+#ifdef ENVVARS
+            if (old_env_log_level) {
+                setenv("LIBNFC_LOG_LEVEL", old_env_log_level, 1);
+                free(old_env_log_level);
+            }
+            else {
+                unsetenv("LIBNFC_LOG_LEVEL");
+            }
+#endif // ENVVARS
+
+            if (pnd) {
+                nfc_close(pnd);
+                log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "User device %s found", context->user_defined_devices[i].name);
+                strcpy((char*)(connstrings + device_found), context->user_defined_devices[i].connstring);
+                device_found++;
+                if (device_found == connstrings_len)
+                    break;
+            }
+        }
+        else {
+            // manual choice is not marked as optional so let's take it blindly
+            strcpy((char*)(connstrings + device_found), context->user_defined_devices[i].connstring);
+            device_found++;
+            if (device_found >= connstrings_len)
+                return device_found;
+        }
+    }
+#endif // CONFFILES
+
+    // Device auto-detection
+    if (context->allow_autoscan) {
+        const struct nfc_driver_list* pndl = nfc_drivers;
+        while (pndl) {
+            const struct nfc_driver* ndr = pndl->driver;
+            if ((ndr->scan_type == NOT_INTRUSIVE) || ((context->allow_intrusive_scan) && (ndr->scan_type == INTRUSIVE))) {
+                size_t _device_found = ndr->scan(context, connstrings + (device_found), connstrings_len - (device_found));
+                log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "%ld device(s) found using %s driver", (unsigned long)_device_found, ndr->name);
+
+                if (_device_found > 0) {
+                    printf("%ld device(s) found using %s driver with connection string: %s \n", (unsigned long)_device_found, ndr->name, connstrings + (device_found));
+                    device_found += _device_found;
+                    if (device_found == connstrings_len)
+                        break;
+                }
+            } // scan_type is INTRUSIVE but not allowed or NOT_AVAILABLE
+            pndl = pndl->next;
+        }
+    }
+    else if (context->user_defined_device_count == 0) {
+        log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_INFO, "Warning: %s", "user must specify device(s) manually when autoscan is disabled");
+    }
+
+    return device_found;
+}
 
 /** @ingroup dev
  * @brief Open a NFC device
@@ -345,94 +445,6 @@ nfc_close(nfc_device *pnd)
   }
 }
 
-/** @ingroup dev
- * @brief Scan for discoverable supported devices (ie. only available for some drivers)
- * @return Returns the number of devices found.
- * @param context The context to operate on, or NULL for the default context.
- * @param connstrings array of \a nfc_connstring.
- * @param connstrings_len size of the \a connstrings array.
- *
- */
-size_t
-nfc_list_devices(nfc_context *context, nfc_connstring connstrings[], const size_t connstrings_len)
-{
-  size_t device_found = 0;
-
-#ifdef CONFFILES
-  // Load manually configured devices (from config file and env variables)
-  // TODO From env var...
-  for (uint32_t i = 0; i < context->user_defined_device_count; i++) {
-    if (context->user_defined_devices[i].optional) {
-      // let's make sure the device exists
-      nfc_device *pnd = NULL;
-
-#ifdef ENVVARS
-      char *env_log_level = getenv("LIBNFC_LOG_LEVEL");
-      char *old_env_log_level = NULL;
-      // do it silently
-      if (env_log_level) {
-        if ((old_env_log_level = malloc(strlen(env_log_level) + 1)) == NULL) {
-          log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_ERROR, "%s", "Unable to malloc()");
-          return 0;
-        }
-        strcpy(old_env_log_level, env_log_level);
-      }
-      setenv("LIBNFC_LOG_LEVEL", "0", 1);
-#endif // ENVVARS
-
-      pnd = nfc_open(context, context->user_defined_devices[i].connstring);
-
-#ifdef ENVVARS
-      if (old_env_log_level) {
-        setenv("LIBNFC_LOG_LEVEL", old_env_log_level, 1);
-        free(old_env_log_level);
-      } else {
-        unsetenv("LIBNFC_LOG_LEVEL");
-      }
-#endif // ENVVARS
-
-      if (pnd) {
-        nfc_close(pnd);
-        log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "User device %s found", context->user_defined_devices[i].name);
-        strcpy((char *)(connstrings + device_found), context->user_defined_devices[i].connstring);
-        device_found ++;
-        if (device_found == connstrings_len)
-          break;
-      }
-    } else {
-      // manual choice is not marked as optional so let's take it blindly
-      strcpy((char *)(connstrings + device_found), context->user_defined_devices[i].connstring);
-      device_found++;
-      if (device_found >= connstrings_len)
-        return device_found;
-    }
-  }
-#endif // CONFFILES
-
-  // Device auto-detection
-  if (context->allow_autoscan) {
-    const struct nfc_driver_list *pndl = nfc_drivers;
-    while (pndl) {
-      const struct nfc_driver *ndr = pndl->driver;
-      if ((ndr->scan_type == NOT_INTRUSIVE) || ((context->allow_intrusive_scan) && (ndr->scan_type == INTRUSIVE))) {
-        size_t _device_found = ndr->scan(context, connstrings + (device_found), connstrings_len - (device_found));
-        log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "%ld device(s) found using %s driver", (unsigned long) _device_found, ndr->name);
-       
-        if (_device_found > 0) {
-            printf("%ld device(s) found using %s driver with connection string: %s \n", (unsigned long)_device_found, ndr->name, connstrings + (device_found));
-          device_found += _device_found;
-          if (device_found == connstrings_len)
-            break;
-        }
-      } // scan_type is INTRUSIVE but not allowed or NOT_AVAILABLE
-      pndl = pndl->next;
-    }
-  } else if (context->user_defined_device_count == 0) {
-    log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_INFO, "Warning: %s", "user must specify device(s) manually when autoscan is disabled");
-  }
-
-  return device_found;
-}
 
 /** @ingroup properties
  * @brief Set a device's integer-property value
@@ -522,7 +534,23 @@ nfc_initiator_init(nfc_device *pnd)
     return res;
   HAL(initiator_init, pnd);
 }
-
+/** @ingroup initiator
+ * @brief Deselect a selected passive or emulated tag
+ * @return Returns 0 on success, otherwise returns libnfc's error code (negative value).
+ * @param pnd \a nfc_device struct pointer that represents currently used device
+ *
+ * After selecting and communicating with a passive tag, this function could be
+ * used to deactivate and release the tag. This is very useful when there are
+ * multiple tags available in the field. It is possible to use the \fn
+ * nfc_initiator_select_passive_target() function to select the first available
+ * tag, test it for the available features and support, deselect it and skip to
+ * the next tag until the correct tag is found.
+ */
+int
+nfc_initiator_deselect_target(nfc_device* pnd)
+{
+    HAL(initiator_deselect_target, pnd);
+}
 /** @ingroup initiator
  * @brief Initialize NFC device as initiator with its secure element as target (reader)
  * @return Returns 0 on success, otherwise returns libnfc's error code (negative value)
@@ -569,7 +597,7 @@ nfc_initiator_select_passive_target(nfc_device *pnd,
 {
   uint8_t *abtInit = NULL;
   uint8_t maxAbt = MAX(12, szInitData);
-  uint8_t *abtTmpInit = malloc(sizeof(uint8_t) * maxAbt);
+   uint8_t *abtTmpInit = (uint8_t*)malloc(sizeof(uint8_t) * maxAbt);
   size_t  szInit = 0;
   int res;
   if ((res = nfc_device_validate_modulation(pnd, N_INITIATOR, &nm)) != NFC_SUCCESS) {
@@ -768,23 +796,7 @@ end:
   return result;
 }
 
-/** @ingroup initiator
- * @brief Deselect a selected passive or emulated tag
- * @return Returns 0 on success, otherwise returns libnfc's error code (negative value).
- * @param pnd \a nfc_device struct pointer that represents currently used device
- *
- * After selecting and communicating with a passive tag, this function could be
- * used to deactivate and release the tag. This is very useful when there are
- * multiple tags available in the field. It is possible to use the \fn
- * nfc_initiator_select_passive_target() function to select the first available
- * tag, test it for the available features and support, deselect it and skip to
- * the next tag until the correct tag is found.
- */
-int
-nfc_initiator_deselect_target(nfc_device *pnd)
-{
-  HAL(initiator_deselect_target, pnd);
-}
+
 
 /** @ingroup initiator
  * @brief Send data to target then retrieve data from target
@@ -1330,7 +1342,7 @@ nfc_version(void)
 #ifdef GIT_REVISION
   return GIT_REVISION;
 #else
-  return PACKAGE_VERSION;
+    return "2";// PACKAGE_VERSION;
 #endif // GIT_REVISION
 }
 
@@ -1429,10 +1441,19 @@ str_nfc_modulation_type(const nfc_modulation_type nmt)
 int
 str_nfc_target(char **buf, const nfc_target *pnt, bool verbose)
 {
-  *buf = malloc(4096);
+  *buf =(char*) malloc(4096);
   if (! *buf)
     return NFC_ESOFT;
   (*buf)[0] = '\0';
   snprint_nfc_target(*buf, 4096, pnt, verbose);
   return strlen(*buf);
 }
+
+#  ifdef __cplusplus
+    };
+    /*NFC_EXPORT nfc* nfc_new()
+    {
+        return new nfc();
+    };*/
+//}
+#  endif                        // __cplusplus

@@ -1,12 +1,16 @@
 # Windows MinGW workarounds
 IF(WIN32)
+
+#set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+
   SET(WINDOWS_SOURCES ../contrib/win32/stdlib)
   INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32)
-
+    # At compile time we need the .LIB file, we place it in the lib directory
+  INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}/nfc.lib DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT libraries)
   # Add in the rc for version information in the dll
   LIST(APPEND WINDOWS_SOURCES ${CMAKE_CURRENT_BINARY_DIR}/../windows/libnfc.rc)
-  IF (NOT MINGW)
-    LIST(APPEND WINDOWS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/nfc_msvc.def)
+ IF (NOT MINGW)
+   LIST(APPEND WINDOWS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/nfc_msvc.def)
   ENDIF()
 ENDIF(WIN32)
 
@@ -18,7 +22,7 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/chips)
 IF(USB_REQUIRED)
   LIST(APPEND BUSES_SOURCES buses/usbbus)
 ENDIF(USB_REQUIRED)
-
+ 
 IF(UART_REQUIRED)
   IF(WIN32)
     # Windows have a special implementation for UART
@@ -75,7 +79,7 @@ IF(LIBNFC_LOG)
   ENDIF(WIN32)
 ENDIF(LIBNFC_LOG)
 ADD_LIBRARY(nfc SHARED ${LIBRARY_SOURCES})
-
+ 
 IF(PCSC_FOUND)
   TARGET_LINK_LIBRARIES(nfc ${PCSC_LIBRARIES})
 ENDIF(PCSC_FOUND)
@@ -100,7 +104,7 @@ IF(WIN32)
       DEPENDS nfc ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/nfc.def
     )
     ADD_CUSTOM_TARGET(win32lib ALL DEPENDS nfc.lib)
-  ELSE()
+  ELSE() 
     ADD_LIBRARY(win32lib ALIAS nfc)
   ENDIF()
 
@@ -108,8 +112,7 @@ IF(WIN32)
   # directory as the excutables or in the path, we add it to same directory
   INSTALL(TARGETS nfc RUNTIME DESTINATION bin COMPONENT libraries)
     
-  # At compile time we need the .LIB file, we place it in the lib directory
-  INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}/nfc.lib DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT libraries)
+
 
 ELSE(WIN32)
   INSTALL(TARGETS nfc LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT libraries)

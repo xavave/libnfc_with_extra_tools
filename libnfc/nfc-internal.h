@@ -120,7 +120,12 @@ typedef enum {
   INTRUSIVE,
   NOT_AVAILABLE,
 } scan_type_enum;
+#  ifdef __cplusplus
+extern  "C" {
+#include <../libnfc/../include/nfc/nfc-types.h>
+#include <../libnfc/target-subr.h>
 
+#  endif  
 struct nfc_driver {
   const char *name;
   const scan_type_enum scan_type;
@@ -131,7 +136,7 @@ struct nfc_driver {
 
   int (*initiator_init)(struct nfc_device *pnd);
   int (*initiator_init_secure_element)(struct nfc_device *pnd);
-  int (*initiator_select_passive_target)(struct nfc_device *pnd,  const nfc_modulation nm, const uint8_t *pbtInitData, const size_t szInitData, nfc_target *pnt);
+   int  (*initiator_select_passive_target)(struct nfc_device *pnd,  const nfc_modulation nm, const uint8_t *pbtInitData, const size_t szInitData, nfc_target *pnt);
   int (*initiator_poll_target)(struct nfc_device *pnd, const nfc_modulation *pnmModulations, const size_t szModulations, const uint8_t uiPollNr, const uint8_t btPeriod, nfc_target *pnt);
   int (*initiator_select_dep_target)(struct nfc_device *pnd, const nfc_dep_mode ndm, const nfc_baud_rate nbr, const nfc_dep_info *pndiInitiator, nfc_target *pnt, const int timeout);
   int (*initiator_deselect_target)(struct nfc_device *pnd);
@@ -221,10 +226,17 @@ void        nfc_device_free(nfc_device *dev);
 
 void string_as_boolean(const char *s, bool *value);
 
-void iso14443_cascade_uid(const uint8_t abtUID[], const size_t szUID, uint8_t *pbtCascadedUID, size_t *pszCascadedUID);
+void  NFC_EXPORT iso14443_cascade_uid(const uint8_t abtUID[], const size_t szUID, uint8_t *pbtCascadedUID, size_t *pszCascadedUID);
 
 void prepare_initiator_data(const nfc_modulation nm, uint8_t **ppbtInitiatorData, size_t *pszInitiatorData);
 
 int connstring_decode(const nfc_connstring connstring, const char *driver_name, const char *bus_name, char **pparam1, char **pparam2);
+#  ifdef __cplusplus
+    };
+    /*NFC_EXPORT nfc* new_nfc() {
+        return new nfc();
+    }*/
 
+
+#  endif     
 #endif // __NFC_INTERNAL_H__

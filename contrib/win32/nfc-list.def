@@ -1,0 +1,4 @@
+LIBRARY nfc
+
+EXPORTS
+  list

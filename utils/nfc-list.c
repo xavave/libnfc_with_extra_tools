@@ -82,8 +82,14 @@ print_usage(const char* progname)
 	printf("\tNote that if 16, 32, 64 or 128 then 8 is selected too.\n");
 }
 
-int
-main(int argc, const char* argv[])
+extern void NFC_EXPORT list() {
+
+	
+	main(1, NULL);
+}
+
+
+int main(int argc, const char* argv[])
 {
 	(void)argc;
 	const char* acLibnfcVersion;

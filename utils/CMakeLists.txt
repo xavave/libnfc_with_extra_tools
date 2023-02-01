@@ -25,9 +25,21 @@ FOREACH(source ${UTILS-SOURCES})
    
 
   IF(WIN32)
+
+   SET(WINDOWS_SOURCES ../contrib/win32/stdlib)
+  INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32)
+     IF(${source} MATCHES "nfc-list")
+ 
+  # Add in the rc for version information in the dll
+  #LIST(APPEND WINDOWS_SOURCES ${CMAKE_CURRENT_BINARY_DIR}/../windows/libnfc.rc)
+ IF (NOT MINGW)
+   LIST(APPEND WINDOWS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/nfc-list.def)
+  ENDIF()
+  ENDIF(${source} MATCHES "nfc-list")
     SET(RC_COMMENT "${PACKAGE_NAME} utility")
     SET(RC_INTERNAL_NAME ${source})
-    SET(RC_ORIGINAL_NAME ${source}.exe)
+   # SET(RC_ORIGINAL_NAME ${source}.exe) 
+    SET(RC_ORIGINAL_NAME ${source}.dll)
     # RC_FILE_TYPE: VFT_APP
     SET(RC_FILE_TYPE 0x00000001L)
     CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/../windows/${source}.rc @ONLY)
@@ -69,7 +81,9 @@ FOREACH(source ${UTILS-SOURCES})
   ENDIF(WIN32)
 
 
-    ADD_EXECUTABLE(${source} ${TARGETS})
+
+    ADD_LIBRARY(${source} ${TARGETS} ${WINDOWS_SOURCES})
+    #ADD_EXECUTABLE(${source} ${TARGETS})
 
    IF(${source} MATCHES "mfoc")
          TARGET_LINK_LIBRARIES(${source} ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/pthreadVSE3 ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/lzma)
@@ -85,6 +99,7 @@ FOREACH(source ${UTILS-SOURCES})
  
   INSTALL(TARGETS ${source} RUNTIME DESTINATION bin COMPONENT utils)
  # INSTALL(FILES nfc.dll DESTINATION bin COMPONENT nfc)
+ 
 
  
 ENDFOREACH(source)
@@ -95,10 +110,11 @@ IF(WIN32 AND NOT MINGW)
   CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/cmake/FixBundle.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/FixBundle.cmake @ONLY)
   add_custom_command(TARGET utils POST_BUILD        # Adds a post-build event to MyTest
     COMMAND ${CMAKE_COMMAND} -E copy_if_different  # which executes "cmake - E copy_if_different..."
-        "${PROJECT_SOURCE_DIR}/out/build/x64-Debug/libnfc/Debug/nfc.dll"      # <--this is in-file
+        "${PROJECT_SOURCE_DIR}/out/build/x64-Debug/libnfc/${CMAKE_BUILD_TYPE}/nfc.dll"      # <--this is in-file
         $<TARGET_FILE_DIR:MyTest>)                 # <--this is out-file path
   INSTALL(SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/FixBundle.cmake)
-  
+    # At compile time we need the .LIB file, we place it in the lib directory
+  INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}/nfc.lib DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT libraries)
 ENDIF()
 
 IF(NOT WIN32)
