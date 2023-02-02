@@ -87,6 +87,7 @@
 static const char *stringify_error(const LONG pcscError);
 
 static const char *supported_devices[] = {
+   "ACR122 Smart Card Reader" //on windows PCSC ACR driver (winscard without libusbK)
   "ACS ACR122 ",         // ACR122U & Touchatag, last version
   "ACS ACR 38U-CCID",   // Touchatag, early version
   "ACS ACR38U-CCID",    // Touchatag, early version, under MacOSX

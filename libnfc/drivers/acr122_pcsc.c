@@ -78,6 +78,7 @@
 #  define SCARD_PROTOCOL_UNDEFINED SCARD_PROTOCOL_UNSET
 #endif
 
+
 #define FIRMWARE_TEXT "ACR122U" // Tested on: ACR122U101(ACS), ACR122U102(Tikitag), ACR122U203(ACS)
 #define ACR122_PCSC_WRAP_LEN 6
 #define ACR122_PCSC_COMMAND_LEN 266
@@ -297,7 +298,9 @@ acr122_pcsc_open(const nfc_context* context, const nfc_connstring connstring)
 
 		// 50: empirical tuning on Touchatag
 		// 46: empirical tuning on ACR122U
-		CHIP_DATA(pnd)->timer_correction = 50;
+		int16_t correction = strstr(ndd.pcsc_device_name, "ACR122") != NULL ? 46 : 50;
+
+		CHIP_DATA(pnd)->timer_correction = correction;
 
 		pnd->driver = &acr122_pcsc_driver;
 

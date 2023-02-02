@@ -53,8 +53,8 @@
 #define LIBNFC_SYSCONFDIR      SYSCONFDIR"."
 #endif // LIBNFC_SYSCONFDIR
 
-#define LIBNFC_CONFFILE        LIBNFC_SYSCONFDIR"\\libnfc.conf"
-#define LIBNFC_DEVICECONFDIR   LIBNFC_SYSCONFDIR"\\confs"
+#define LIBNFC_CONFFILE        LIBNFC_SYSCONFDIR"/libnfc.conf"
+#define LIBNFC_DEVICECONFDIR   LIBNFC_SYSCONFDIR"/confs"
 
 static int
 escaped_value(const char line[BUFSIZ], int i, char **value)

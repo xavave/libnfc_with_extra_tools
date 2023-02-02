@@ -2929,7 +2929,7 @@ pn53x_RFConfiguration__RF_field(struct nfc_device* pnd, bool bEnable)
 	//https://groups.google.com/g/nfc-tools-issues/c/nZrtkAFYeNk
 	uint8_t abtCmd[] = { RFConfiguration, RFCI_FIELD, (bEnable) ? 0x01 : 0x00 };
 	if (!bEnable) {
-		CHIP_DATA(pnd)->timeout_command = 1000;
+		CHIP_DATA(pnd)->timeout_command = 800;
 		pn53x_reset_settings(pnd);
 	}
 	Sleep(100);

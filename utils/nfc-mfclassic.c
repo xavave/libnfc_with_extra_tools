@@ -86,24 +86,40 @@ static uint8_t uiBlocks;
 static int32_t uiStartBlock = 0;
 static int32_t uiEndBlock = -1;
 static uint8_t keys[] = {
-  0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-  0xd3, 0xf7, 0xd3, 0xf7, 0xd3, 0xf7,
-  0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5,
-  0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5,
-  0x4d, 0x3a, 0x99, 0xc3, 0x51, 0xdd,
-  0x1a, 0x98, 0x2c, 0x7e, 0x45, 0x9a,
-  0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0xab, 0xcd, 0xef, 0x12, 0x34, 0x56
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0x48, 0x45, 0x58, 0x41, 0x43, 0x54,
+	0xa2, 0x2a, 0xe1, 0x29, 0xc0, 0x13,
+	0x49, 0xfa, 0xe4, 0xe3, 0x84, 0x9f,
+	0x38, 0xfc, 0xf3, 0x30, 0x72, 0xe0,
+	0x8a, 0xd5, 0x51, 0x7b, 0x4b, 0x18,
+	0x50, 0x93, 0x59, 0xf1, 0x31, 0xb1,
+	0x6c, 0x78, 0x92, 0x8e, 0x13, 0x17,
+	0xaa, 0x07, 0x20, 0x01, 0x87, 0x38,
+	0xa6, 0xca, 0xc2, 0x88, 0x64, 0x12,
+	0x62, 0xd0, 0xc4, 0x24, 0xed, 0x8e,
+	0xe6, 0x4a, 0x98, 0x6a, 0x5d, 0x94,
+	0x8f, 0xa1, 0xd6, 0x01, 0xd0, 0xa2,
+	0x89, 0x34, 0x73, 0x50, 0xbd, 0x36,
+	0x66, 0xd2, 0xb7, 0xdc, 0x39, 0xef,
+	0x6b, 0xc1, 0xe1, 0xae, 0x54, 0x7d,
+	0x22, 0x72, 0x9a, 0x9b, 0xd4, 0x0f,
+	0xd3, 0xf7, 0xd3, 0xf7, 0xd3, 0xf7,
+	0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5,
+	0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5,
+	0x4d, 0x3a, 0x99, 0xc3, 0x51, 0xdd,
+	0x1a, 0x98, 0x2c, 0x7e, 0x45, 0x9a,
+	0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0xab, 0xcd, 0xef, 0x12, 0x34, 0x56
 };
 static const uint8_t default_key[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 static const uint8_t _default_acl[] = { 0xff, 0x07, 0x80, 0x69 };
 static uint8_t* default_acl = _default_acl;
 static uint8_t* custom_acl = _default_acl;
 static uint8_t* pbtUID;
-static uint8_t _tag_uid[4] = { 0x12, 0x34, 0x56, 0x78 };
+static const uint8_t _tag_uid[4] = { 0x00, 0x00, 0x00, 0x00 };
 static uint8_t* tag_uid = _tag_uid;
-//-p W -e A -u -d "C:\Program Files (x86)\AVXTEC\MWT\dumps\blank_tag.dump" -k "G:\work\Mifare-Windows-Tool\MifareWindowsTool\bin\Debug\dumps\Dump_01234567.mfd" -f -i 0   -s 5  -t 5
+//-p W -e A -u -d "blank_tag.dump" -k "GDump_01234567.mfd" -f -i 0   -s 5  -t 5
 static const nfc_modulation nmMifare = {
   .nmt = NMT_ISO14443A,
   .nbr = NBR_106,
@@ -205,7 +221,7 @@ static bool authenticate(uint32_t uiBlock)
 	mc = (bUseKeyA) ? MC_AUTH_A : MC_AUTH_B;
 
 	// Key file authentication.
-	if (bUseKeyFile) {
+	if (bUseKeyFile == true) {
 
 		// Locate the trailer (with the keys) used for this sector
 		uint32_t uiTrailerBlock;
@@ -231,7 +247,7 @@ static bool authenticate(uint32_t uiBlock)
 
 	}
 
-	//return false;
+	return false;
 }
 static bool tryToGuessKey(mifare_cmd mc, uint32_t uiBlock)
 {
@@ -247,7 +263,7 @@ static bool tryToGuessKey(mifare_cmd mc, uint32_t uiBlock)
 			{
 				memcpy(mtKeys.amb[uiBlock].mbt.abtKeyB, &mp.mpa.abtKey, sizeof(mtKeys.amb[uiBlock].mbt.abtKeyB));
 			}
-			fprintf(stdout," Found Key: %c [%012llx]\n", (bUseKeyA ? 'A' : 'B'), bytes_to_num(mp.mpa.abtKey, 6));
+			fprintf(stdout, " Found Key: %c [%012llx]\n", (bUseKeyA ? 'A' : 'B'), bytes_to_num(mp.mpa.abtKey, 6));
 			return true;
 		}
 		if (nfc_initiator_select_passive_target(pnd, nmMifare, nt.nti.nai.abtUid, nt.nti.nai.szUidLen, NULL) <= 0) {
@@ -554,49 +570,53 @@ print_usage(const char* pcProgramName)
 #ifndef _WIN32
 	printf("%s -p [f|r|R|w|W] -e [a|A|b|B] -u [01AB23CD] -i [0|1] -d <dump.mfd> -k <keys.mfd> -F -v\n", pcProgramName);
 #else
-	printf("%s -p [f|r|R|w|W] -e [a|A|b|B] -u [01AB23CD] -i [0|1] -d <dump.mfd> -k <keys.mfd> -F\n", pcProgramName);
+	printf("%s -p [f|r|R|w|W] -e [a|A|b|B] -u [01AB23CD] -c \"acr122_pcsc:ACS ACR122 0\" -i [0|1] -d <dump.mfd> -k <keys.mfd> -F\n", pcProgramName);
 #endif
-	printf(" -p [f|r|R|w|W] - Perform format (f) or read from (r) or unlocked read from (R) or write to (w) or block 0 write to (W) card\n");
-	printf("                  *** format will reset all keys to FFFFFFFFFFFF and all data to 00 and all ACLs to default\n");
-	printf("                  *** unlocked read does not require authentication and will reveal A and B keys\n");
-	printf("                  *** note that block 0 write will attempt to overwrite block 0 including UID\n");
-	printf("                  *** block 0 write only works with special Mifare cards (Chinese clones)\n");
-	printf(" -e [a|A|b|B]   - Use A or B keys for action; Halt on errors (a|b) or tolerate errors (A|B)\n");
-	printf(" -u [0|UID]     - Use any uid (-u 0) \n");
-	printf("                  *** or supply a custom UID as -u 01AB23CD.\n");
-	printf(" -i [0|1]       - force intrusive scan ON or OFF (0 for NO or 1 for YES).\n");
-	printf(" -d <dump.mfd>  - MiFare Dump (MFD) used to write (card to MFD) or (MFD to card)\n");
-	printf(" -k <keys.mfd>  - MiFare Dump (MFD) that contain the keys (optional)\n");
-	printf(" -s <0..x>      - Write from specified block (example: -s 4 (decimal number)) x depends on the tag size\n");
-	printf(" -t <0..x>      - Write to specified block (example: -t 12 (decimal number))  x depends on the tag size\n");
-	printf("                  *** max block: 19 for 320 bytes tags\n");
-	printf("                  *** max block: 63 for 1K/2K tags\n");
-	printf("                  *** max block: 127 for MIFARE Plus 2K tags\n");
-	printf("                  *** max block: 255 for 4K tags\n");
-	printf(" -a [ACL]       - Force custom ACL (4 bytes) instead of default FF078069.\n");
-	printf(" -f             - Force using the keyfile even if UID does not match (optional)\n");
+	printf(" -p [f|r|R|w|W]			- Perform format (f) or read from (r) or unlocked read from (R) or write to (w) or block 0 write to (W) card\n");
+	printf("								*** format will reset all keys to FFFFFFFFFFFF and all data to 00 and all ACLs to default\n");
+	printf("								*** unlocked read does not require authentication and will reveal A and B keys\n");
+	printf("								*** note that block 0 write will attempt to overwrite block 0 including UID\n");
+	printf("								*** block 0 write only works with special Mifare cards (Chinese clones)\n");
+	printf(" -e [a|A|b|B]			- Use A or B keys for action; Halt on errors (a|b) or tolerate errors (A|B)\n");
+	printf(" -u [0|UID]				- Use any uid (-u 0) \n");
+	printf("								*** or supply a custom UID as -u 01AB23CD.\n");
+	printf(" -i [0|1]				- force intrusive scan ON or OFF (0 for NO or 1 for YES).\n");
+	printf(" -d <dump.mfd>			- MiFare Dump (MFD) used to write (card to MFD) or (MFD to card)\n");
+	printf(" -k <keys.mfd>			- MiFare Dump (MFD) that contain the keys (optional)\n");
+	printf(" -s <0..x>				- Write from specified block (example: -s 4 (decimal number)) x depends on the tag size\n");
+	printf(" -t <0..x>				- Write to specified block (example: -t 12 (decimal number))  x depends on the tag size\n");
+	printf("								*** max block: 19 for 320 bytes tags\n");
+	printf("								*** max block: 63 for 1K/2K tags\n");
+	printf("								*** max block: 127 for MIFARE Plus 2K tags\n");
+	printf("								*** max block: 255 for 4K tags\n");
+	printf(" -a [ACL]				- Force custom ACL (4 bytes) instead of default FF078069.\n");
+	printf(" -c <connection string>	- Use connection string if specific device is wanted\n");
+	printf(" -f						- Force using the keyfile even if UID does not match (optional)\n");
 
 
 #ifndef _WIN32
-	printf("  -v            - Sends libnfc log output to console (optional)\n");
+	printf(" -v						- Sends libnfc log output to console (optional)\n");
 #endif
 	printf("Examples: \n\n");
 	printf("  Read card to file, using key A:\n\n");
-	printf("    %s -p r -e a -u -d mycard.mfd\n\n", pcProgramName);
+	printf("    %s -p r -e a -u 0 -d mycard.mfd\n\n", pcProgramName);
+	printf("  Read card to file, using key A, using ACR122U 0 with pcsc\n\n");
+	printf("    %s -p r -e a -u 0 -c \"acr122_pcsc:ACS ACR122 0\" -d mycard.mfd\n\n", pcProgramName);
 	printf("  Search tag readers with intrusive scan, then read card to file, using key A:\n\n");
-	printf("    %s -p r -e a -u -d mycard.mfd -i 1\n\n", pcProgramName);
+	printf("    %s -p r -e a -u 0 -d mycard.mfd -i 1\n\n", pcProgramName);
 	printf("  Write file to blank card, using key A:\n\n");
-	printf("    %s -p w -e a -u -d mycard.mfd\n\n", pcProgramName);
+	printf("    %s -p w -e a -u 0 -d mycard.mfd\n\n", pcProgramName);
 	printf("  Write new data and/or keys to previously written card, using key A:\n\n");
-	printf("    %s -p w -e a -u -d newdata.mfd -k mycard.mfd\n\n", pcProgramName);
+	printf("    %s -p w -e a -u 0 -d newdata.mfd -k mycard.mfd\n\n", pcProgramName);
 	printf("  Format/wipe card (note two passes required to ensure writes for all ACL cases):\n\n");
-	printf("    %s -p f -e A -u -k keyfile.mfd f\n", pcProgramName);
-	printf("    %s -p f -e B -u -k keyfile.mfd f\n\n", pcProgramName);
+	printf("    %s -p f -e A -u 0 -k keyfile.mfd f\n", pcProgramName);
+	printf("    %s -p f -e B -u 0 -k keyfile.mfd f\n\n", pcProgramName);
 	printf("  Read card to file, using key A and uid 0x01 0xab 0x23 0xcd:\n\n");
 	printf("    %s -p r -e a -u 01ab23cd -d mycard.mfd\n\n", pcProgramName);
 }
 static char* keysFileName = "";
 static char* dumpFileName = "";
+static char* specificConnectionString = "";
 
 int main(int argc, const char* argv[])
 {
@@ -605,7 +625,7 @@ int main(int argc, const char* argv[])
 	bool    unlock = false;
 	bool verbose = false;
 	//File pointers for the keyfile 
-	FILE* pfKeys;
+	FILE* pfKeys = NULL;
 
 #ifndef _WIN32
 	// Send noise from lib to /dev/null
@@ -616,10 +636,10 @@ int main(int argc, const char* argv[])
 	}
 #endif
 	int ch, tmpStartBlock, tmpEndBlock;
-	tag_uid = NULL;
+
 	// Parse command line arguments
 	//	printf("%s -p [f|r|R|w|W] -e [a|A|b|B] -u [0|01AB23CD] -i [0|1] -d <dump.mfd> -k <keys.mfd> -F\n", pcProgramName);
-	while ((ch = getopt(argc, argv, "p:e:u:i:d:k:s:t:a:fv")) != -1) {
+	while ((ch = getopt(argc, argv, "p:e:u:i:d:k:s:t:a:c:fv")) != -1) {
 		switch (ch) {
 		case 'f':
 			bForceKeyFile = true;
@@ -685,6 +705,14 @@ int main(int argc, const char* argv[])
 			keysFileName = optarg;
 			bUseKeyFile = true;
 			break;
+		case 'c':
+			if (optarg == NULL || (strlen(optarg) < 5)) {
+				fprintf(stderr, "wrong connection string: %s, exiting\n", optarg);
+				exit(EXIT_FAILURE);
+			}
+			specificConnectionString = optarg + '\0';
+
+			break;
 		case 'd':
 			if (optarg == NULL)
 			{
@@ -708,6 +736,10 @@ int main(int argc, const char* argv[])
 				tag_uid[2] = (_uid & 0x0000ff00UL) >> 8;
 				tag_uid[3] = (_uid & 0x000000ffUL);
 				printf("Attempting to use specific UID: 0x%2x 0x%2x 0x%2x 0x%2x\n", tag_uid[0], tag_uid[1], tag_uid[2], tag_uid[3]);
+			}
+			else
+			{
+				tag_uid = NULL;
 			}
 			break;
 		case 'a':
@@ -744,9 +776,10 @@ int main(int argc, const char* argv[])
 		exit(EXIT_FAILURE);
 	}
 	// We don't know yet the card size so let's read only the UID from the keyfile for the moment
-	if (bUseKeyFile) {
+	if (bUseKeyFile == true) {
 
 		if (pfKeys == NULL) {
+			printf("key file asked but keysFileName is null\n");
 			exit(EXIT_FAILURE);
 		}
 		if (fread(&mtKeys, 1, 4, pfKeys) != 4) {
@@ -767,32 +800,19 @@ int main(int argc, const char* argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	// Try to open the NFC reader
+
 	// Display libnfc version
 	printf("%s uses libnfc %s\n", argv[0], nfc_version());
 
-	nfc_connstring connstrings[MAX_DEVICE_COUNT];
-	size_t szDeviceFound = nfc_list_devices(context, connstrings, MAX_DEVICE_COUNT);
+	// Try to open the NFC reader
+	pnd = nfc_open(context, strlen(specificConnectionString) > 5 ? specificConnectionString : NULL);
 
-	if (szDeviceFound == 0) {
-		printf("No NFC device found.\n");
+
+	if (pnd == NULL) {
+		ERR("Error opening NFC reader");
+		nfc_exit(context);
+		exit(EXIT_FAILURE);
 	}
-
-	for (int i = 0; i < szDeviceFound; i++) {
-		nfc_target ant[MAX_TARGET_COUNT];
-		pnd = nfc_open(context, connstrings[i]);
-		if (pnd == NULL) {
-			printf("Unable to open NFC device: %s\n", connstrings[i]);
-			continue;
-		}
-		else
-		{
-			printf("NFC device: %s found\n", nfc_device_get_name(pnd));
-			break;
-		}
-
-	}
-
 	if (pnd == NULL) {
 		ERR("Error opening NFC reader");
 		nfc_exit(context);
