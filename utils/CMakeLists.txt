@@ -1,4 +1,34 @@
-SET(UTILS-SOURCES 
+cmake_minimum_required(VERSION 3.10)
+project(utils LANGUAGES C)
+
+# Déclarez les sources des utilitaires
+set(UTILS_SOURCES
+  ../utils/nfc-utils.c
+)
+
+
+
+# Créez la bibliothèque partagée nfcutils
+add_library(nfcutils SHARED ${UTILS_SOURCES})
+target_compile_definitions(nfcutils PRIVATE BUILDING_NFCUTILS)
+set_target_properties(nfcutils PROPERTIES LINKER_LANGUAGE C)
+
+# Définir les répertoires de sortie pour les DLL et les fichiers .lib
+set_target_properties(nfcutils PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+  ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+  LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+  OUTPUT_NAME "nfcutils"
+)
+
+target_link_libraries(nfcutils nfc)
+
+# Ajouter une commande personnalisée pour vérifier l'existence de nfcutils.lib
+#add_custom_command(TARGET nfcutils POST_BUILD
+#  COMMAND ${CMAKE_COMMAND} -P ${CMAKE_SOURCE_DIR}/check_file_exists.cmake
+# )
+# Liste des utilitaires à compiler
+set(UTILS_EXECUTABLES
   nfc-barcode
   nfc-emulate-forum-tag4
   nfc-jewel
@@ -9,100 +39,35 @@ SET(UTILS-SOURCES
   nfc-relay-picc
   nfc-scan-device
   mfcuk
- 
 )
 
-ADD_LIBRARY(nfcutils STATIC 
-  nfc-utils.c
+# Boucle pour créer chaque exécutable
+foreach(util ${UTILS_EXECUTABLES})
+if(${util} STREQUAL "mfcuk")
+    add_executable(${util} ${util}.c ../utils/nfc-utils.c ../utils/crypto1.c  ../utils/crapto1.c ../utils/mfcuk_mifare.c ../utils/mfcuk_utils.c  ../utils/mfcuk_finger.c ../utils/mifare.c ../utils/getopt.c  ../utils/slre.c)
+  elseif(${util} STREQUAL "nfc-mfsetuid")
+  add_executable(${util} ${util}.c  ../utils/nfc-utils.c ../utils/mifare.c ../utils/getopt.c )
+   elseif(${util} STREQUAL "nfc-jewel")
+  add_executable(${util} ${util}.c  ../utils/nfc-utils.c ../utils/mifare.c ../utils/getopt.c ../utils/jewel.c )
+    else()
+    add_executable(${util} ${util}.c ../utils/mifare.c ../utils/getopt.c ../utils/nfc-utils.c)
+  endif()
+  target_link_libraries(${util} nfc nfcutils)
+  install(TARGETS ${util} RUNTIME DESTINATION bin COMPONENT utils)
+endforeach()
+
+# Installer la bibliothèque nfcutils
+install(TARGETS nfcutils
+  RUNTIME DESTINATION bin COMPONENT utils
+  LIBRARY DESTINATION lib COMPONENT utils
+  ARCHIVE DESTINATION lib COMPONENT utils
 )
-TARGET_LINK_LIBRARIES(nfcutils nfc)
 
+# Installer explicitement le fichier .lib
+if (WIN32)
+  install(FILES ${CMAKE_BINARY_DIR}/lib/nfcutils.lib DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT libraries)
+endif()
 
-# Examples
-FOREACH(source ${UTILS-SOURCES})
-  SET (TARGETS ${source}.c)
-
-   
-
-  IF(WIN32)
-    SET(RC_COMMENT "${PACKAGE_NAME} utility")
-    SET(RC_INTERNAL_NAME ${source})
-    SET(RC_ORIGINAL_NAME ${source}.exe)
-    # RC_FILE_TYPE: VFT_APP
-    SET(RC_FILE_TYPE 0x00000001L)
-    CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/../windows/${source}.rc @ONLY)
-    LIST(APPEND TARGETS ${CMAKE_CURRENT_BINARY_DIR}/../windows/${source}.rc)
-  ENDIF(WIN32)
-
-  IF(${source} MATCHES "nfc-jewel")
-    LIST(APPEND TARGETS jewel)
-  ENDIF(${source} MATCHES "nfc-jewel")
-
-
-  IF((${source} MATCHES "nfc-mfultralight") OR (${source} MATCHES "nfc-mfclassic"))
-    LIST(APPEND TARGETS mifare)
-  ENDIF((${source} MATCHES "nfc-mfultralight") OR (${source} MATCHES "nfc-mfclassic"))
-				
-  
-  IF(WIN32)
-    IF((${source} MATCHES "nfc-scan-device") OR (${source} MATCHES "nfc-mfclassic") OR (${source} MATCHES "nfc-list") OR (${source} MATCHES "mfoc") OR (${source} MATCHES "mfcuk"))
-      LIST(APPEND TARGETS ../contrib/win32/stdlib)
-      INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32)
-       LIST(APPEND TARGETS ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/getopt.c)
-    ENDIF()
-    IF((${source} MATCHES "nfc-read-forum-tag3"))
-      LIST(APPEND TARGETS ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/getopt.c)
-    ENDIF()
-      IF(${source} MATCHES "nfc-mfclassic")
-         INCLUDE_DIRECTORIES(${source} ${CMAKE_CURRENT_SOURCE_DIR}/include)
-   ENDIF()
-      IF(${source} MATCHES "mfcuk")
-      LIST(APPEND TARGETS mfcuk_mifare parity crypto1 crapto1 mfcuk_utils mfcuk_finger mifare)
-       LIST(APPEND TARGETS ../contrib/win32/stdlib)
-    ENDIF()
-     IF(${source} MATCHES "mfoc")
-       INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/lzma)
-       INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/hardnested)
-     LIST(APPEND TARGETS ${CMAKE_CURRENT_SOURCE_DIR}/hardnested/hardnested_bf_core_NOSIMD  ${CMAKE_CURRENT_SOURCE_DIR}/hardnested/hardnested_cpu_dispatch ${CMAKE_CURRENT_SOURCE_DIR}/hardnested/hardnested_bitarray_core_NOSIMD ${CMAKE_CURRENT_SOURCE_DIR}/hardnested/tables ${CMAKE_CURRENT_SOURCE_DIR}/hardnested/hardnested_cpu_dispatch ${CMAKE_CURRENT_SOURCE_DIR}/hardnested/hardnested_bruteforce ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/pthread.lib ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/bf_bench_data.bin  bf_bench_data util_posix util ui pthread sched lzma cmdhfmfhard config_w parity crypto1 crapto1 mifare)
-   
-    ENDIF()
-  ENDIF(WIN32)
-
-
-    ADD_EXECUTABLE(${source} ${TARGETS})
-
-   IF(${source} MATCHES "mfoc")
-         TARGET_LINK_LIBRARIES(${source} ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/pthreadVSE3 ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/lzma)
-    ENDIF()
-
-    IF(${source} MATCHES "nfc-mfclassic")
-         TARGET_INCLUDE_DIRECTORIES(${source} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-    ENDIF()
-   
-  TARGET_LINK_LIBRARIES(${source} nfc)
-  TARGET_LINK_LIBRARIES(${source} nfcutils)
-
- 
-  INSTALL(TARGETS ${source} RUNTIME DESTINATION bin COMPONENT utils)
- # INSTALL(FILES nfc.dll DESTINATION bin COMPONENT nfc)
-
- 
-ENDFOREACH(source)
-
-#install required libraries
-IF(WIN32 AND NOT MINGW)
-  INCLUDE(InstallRequiredSystemLibraries)
-  CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/cmake/FixBundle.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/FixBundle.cmake @ONLY)
-  add_custom_command(TARGET utils POST_BUILD        # Adds a post-build event to MyTest
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different  # which executes "cmake - E copy_if_different..."
-        "${PROJECT_SOURCE_DIR}/out/build/x64-Debug/libnfc/Debug/nfc.dll"      # <--this is in-file
-        $<TARGET_FILE_DIR:MyTest>)                 # <--this is out-file path
-  INSTALL(SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/FixBundle.cmake)
-  
-ENDIF()
-
-IF(NOT WIN32)
-  # Manuals for the examples
-  FILE(GLOB manuals "${CMAKE_CURRENT_SOURCE_DIR}/*.1")
-  INSTALL(FILES ${manuals} DESTINATION ${SHARE_INSTALL_PREFIX}/man/man1 COMPONENT manuals)
-ENDIF(NOT WIN32)
+# Messages de débogage
+message(STATUS "CMAKE_BINARY_DIR: ${CMAKE_BINARY_DIR}")
+message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")

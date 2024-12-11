@@ -1,11 +1,13 @@
-cmake_minimum_required (VERSION 2.8)
-cmake_policy(SET CMP0115 OLD)
+# Ajoutez cette ligne au début du fichier pour spécifier la version minimale de CMake
+cmake_minimum_required(VERSION 3.10)
+cmake_policy(SET CMP0115 NEW)
+cmake_policy(SET CMP0040 NEW)
 
 if (NOT DEFINED CMAKE_BUILD_TYPE)
   set (CMAKE_BUILD_TYPE Release CACHE STRING "Build type")
 endif ()
-
-project (libnfc C)
+# Déclarez le projet et spécifiez le langage
+project(libnfc LANGUAGES C)
 
 SET(VERSION_MAJOR "1")
 SET(VERSION_MINOR "8")
@@ -17,10 +19,35 @@ SET(PACKAGE_NAME "libnfc")
 SET(PACKAGE_VERSION ${VERSION})
 SET(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
 
+
+# Définir les dépendances supplémentaires globales
+#set_property(GLOBAL PROPERTY GLOBAL_DEPENDENCIES "nfc;C:/Program Files (x86)/Windows Kits/10/Lib/${WINDOWS_KIT_VERSION}/um/x64/winscard.lib")
+set_property(GLOBAL PROPERTY GLOBAL_DEPENDENCIES "nfc")
+# Fonction pour appliquer les dépendances supplémentaires à toutes les cibles
+function(apply_global_dependencies target)
+  foreach(dep ${GLOBAL_DEPENDENCIES})
+    target_link_libraries(${target} PRIVATE ${dep})
+  endforeach()
+endfunction()
+
+
+# Récupérer toutes les cibles définies dans le projet
+get_property(TARGETS GLOBAL PROPERTY TARGETS)
+
+# Appliquer les dépendances supplémentaires à chaque cible
+foreach(target ${TARGETS})
+  apply_global_dependencies(${target})
+endforeach()
+
 # config.h
 IF(WIN32)
 set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
+# Messages de débogage
+message(STATUS "CMAKE_BINARY_DIR: ${CMAKE_BINARY_DIR}")
+message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+
   SET(LIBNFC_SYSCONFDIR "./config" CACHE PATH "libnfc configuration directory")
   CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/cmake/config_windows.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config.h)
   INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32)
@@ -37,6 +64,9 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
 ADD_DEFINITIONS("-DHAVE_CONFIG_H")
 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+
+
 
 # make it easy to locate CMake modules for finding libraries
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules/")
@@ -186,12 +216,42 @@ IF(PCSC_INCLUDE_DIRS)
   LINK_DIRECTORIES(${PCSC_LIBRARY_DIRS})
 ENDIF(PCSC_INCLUDE_DIRS)
 
+add_library(libnfc SHARED
+libnfc/chips/pn53x.c
+libnfc/drivers/acr122_pcsc.c
+libnfc/iso14443-subr.c
+libnfc/log-internal.c
+ libnfc/log.c
+   libnfc/nfc.c
+    libnfc/nfc-internal.c
+   utils/nfc-utils.c
+   libnfc/target-subr.c)  # Assurez-vous que ce fichier contient la définition de snprint_nfc_target
+  # Ajoutez ici les autres fichiers sources nécessaires
+
+  # Ajouter le répertoire des modules CMake personnalisés
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules")
+
+# Trouver libusb-1.0
+find_package(libusb REQUIRED)
+
+if(LIBUSB_FOUND)
+  message(STATUS "libusb-1.0 found:")
+  message(STATUS "  Include dirs: ${LIBUSB_INCLUDE_DIRS}")
+  message(STATUS "  Libraries: ${LIBUSB_LIBRARIES}")
+endif(LIBUSB_FOUND)
+
 IF(LIBUSB_INCLUDE_DIRS)
-  INCLUDE_DIRECTORIES(${LIBUSB_INCLUDE_DIRS})
-  LINK_DIRECTORIES(${LIBUSB_LIBRARY_DIRS})
+    
+    target_include_directories(libnfc PRIVATE ${LIBUSB_INCLUDE_DIRS})
+    target_link_libraries(libnfc PRIVATE ${LIBUSB_LIBRARIES})
+    
   SET(LIBUSB_FOUND TRUE)
 ENDIF(LIBUSB_INCLUDE_DIRS)
 
+  
+IF(PCSC_LIBRARIES)
+  target_link_libraries(libnfc PRIVATE ${PCSC_LIBRARIES})
+ENDIF(PCSC_LIBRARIES)
 # version.rc for Windows
 IF(WIN32)
   # Date for filling in rc file information
@@ -217,7 +277,25 @@ IF(WIN32)
   # RC_FILE_TYPE: VFT_DLL
   SET(RC_FILE_TYPE 0x00000002L)
   CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/contrib/win32/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/windows/libnfc.rc @ONLY)
+
+  # Compile the .rc file to .res
+  #add_custom_command(
+  #  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/windows/libnfc.res
+  #  COMMAND ${CMAKE_RC_COMPILER} ${CMAKE_CURRENT_BINARY_DIR}/windows/libnfc.rc -o ${CMAKE_CURRENT_BINARY_DIR}/windows/libnfc.res
+   # DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/windows/libnfc.rc
+   # COMMENT "Compiling resource file"
+  #)
+
+  # Add the .res file to the target
+ # add_library(libnfc_resources OBJECT ${CMAKE_CURRENT_BINARY_DIR}/windows/libnfc.res)
+ #   set_target_properties(libnfc_resources PROPERTIES LINKER_LANGUAGE C)
+ 
+   # Ajoutez ici les fichiers sources de libnfc
+ # target_sources(${PROJECT_NAME} PRIVATE $<TARGET_OBJECTS:libnfc_resources>)
 ENDIF(WIN32)
+
+
+
 
 ADD_SUBDIRECTORY(libnfc)
 ADD_SUBDIRECTORY(include)

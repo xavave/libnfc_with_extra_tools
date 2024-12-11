@@ -42,11 +42,11 @@
 
 #include <nfc/nfc.h>
 
-#include "drivers.h"
-#include "nfc-internal.h"
-#include "chips/pn53x.h"
-#include "chips/pn53x-internal.h"
-#include "uart.h"
+#include "../drivers.h"
+#include "../nfc-internal.h"
+#include "../chips/pn53x.h"
+#include "../chips/pn53x-internal.h"
+#include "../buses/uart.h"
 
 #define PN532_UART_DEFAULT_SPEED 115200
 #define PN532_UART_DRIVER_NAME "pn532_uart"

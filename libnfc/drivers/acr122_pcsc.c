@@ -41,9 +41,9 @@
 
 #include <nfc/nfc.h>
 
-#include "chips/pn53x.h"
-#include "drivers/acr122_pcsc.h"
-#include "nfc-internal.h"
+#include "../chips/pn53x.h"
+#include "./acr122_pcsc.h"
+#include "../nfc-internal.h"
 
   // Bus
 #ifdef __APPLE__

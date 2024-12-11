@@ -1,49 +1,55 @@
+# Ajoutez cette ligne au début du fichier pour spécifier la version minimale de CMake
+cmake_minimum_required(VERSION 3.10)
+
+# Déclarez le projet et spécifiez le langage
+project(libnfc LANGUAGES C)
+
 # Windows MinGW workarounds
 IF(WIN32)
-  SET(WINDOWS_SOURCES ../contrib/win32/stdlib)
+  SET(WINDOWS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/stdlib.c)
   INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32)
 
   # Add in the rc for version information in the dll
   LIST(APPEND WINDOWS_SOURCES ${CMAKE_CURRENT_BINARY_DIR}/../windows/libnfc.rc)
   IF (NOT MINGW)
-    LIST(APPEND WINDOWS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/nfc_msvc.def)
+    LIST(APPEND WINDOWS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}./../contrib/win32/nfc_msvc.def)
   ENDIF()
 ENDIF(WIN32)
 
 # Library's chips
-SET(CHIPS_SOURCES chips/pn53x)
+SET(CHIPS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/chips/pn53x.c)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/chips)
 
 # Library's buses
 IF(USB_REQUIRED)
-  LIST(APPEND BUSES_SOURCES buses/usbbus)
+  LIST(APPEND BUSES_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/buses/usbbus.c)
 ENDIF(USB_REQUIRED)
 
 IF(UART_REQUIRED)
   IF(WIN32)
     # Windows have a special implementation for UART
-    LIST(APPEND BUSES_SOURCES ../contrib/win32/libnfc/buses/uart)
+    LIST(APPEND BUSES_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/libnfc/buses/uart.c)
   ELSE(WIN32)
-    LIST(APPEND BUSES_SOURCES buses/uart)
+    LIST(APPEND BUSES_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/buses/uart.c)
   ENDIF(WIN32)
 ENDIF(UART_REQUIRED)
 
 IF(I2C_REQUIRED)
   IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    LIST(APPEND BUSES_SOURCES buses/i2c)
+    LIST(APPEND BUSES_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/buses/i2c.c)
   ELSE(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     # Only Linux is supported at the moment
-    #LIST(APPEND BUSES_SOURCES ../contrib/win32/libnfc/buses/i2c)
+    #LIST(APPEND BUSES_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/libnfc/buses/i2c.c)
     MESSAGE( FATAL_ERROR "I2C is only (yet) supported in Linux!" )
   ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 ENDIF(I2C_REQUIRED)
 
 IF(SPI_REQUIRED)
   IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    LIST(APPEND BUSES_SOURCES buses/spi)
+    LIST(APPEND BUSES_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/buses/spi.c)
   ELSE(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     # Only Linux is supported at the moment
-    #LIST(APPEND BUSES_SOURCES ../contrib/win32/libnfc/buses/spi)
+    #LIST(APPEND BUSES_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/libnfc/buses/spi.c)
     MESSAGE( FATAL_ERROR "SPI is only (yet) supported in Linux!" )
   ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 ENDIF(SPI_REQUIRED)
@@ -58,41 +64,99 @@ ENDIF(PCSC_FOUND)
 IF(LIBUSB_FOUND)
   INCLUDE_DIRECTORIES(${LIBUSB_INCLUDE_DIRS})
   LINK_DIRECTORIES(${LIBUSB_LIBRARY_DIRS})
+  
 ENDIF(LIBUSB_FOUND)
 
+ set(DRIVER_SOURCES
+    drivers/acr122_pcsc.c
+    drivers/acr122s.c
+    drivers/arygon.c
+    drivers/pn532_uart.c
+    # Ajoutez d'autres pilotes si nécessaire
+  )
+
+  if(LIBNFC_DRIVER_PCSC)
+    list(APPEND DRIVER_SOURCES drivers/pcsc.c)
+    add_definitions(-DLIBNFC_DRIVER_PCSC)
+  endif()
+   if(LIBNFC_DRIVER_ACR122_USB)
+    list(APPEND DRIVER_SOURCES drivers/acr122_usb.c)
+    add_definitions(-DLIBNFC_DRIVER_ACR122_USB)
+  endif()
+  
+  set(UTILS_SOURCES
+    ../utils/nfc-utils.c
+  )
+    set(LOG_SOURCES
+    log.c
+    log-internal.c
+  )
+
+   set(LIBNFC_SOURCES
+   ${LOG_SOURCES}
+    nfc.c
+    nfc-internal.c
+    nfc-device.c
+    target-subr.c
+    # Ajoutez tous les autres fichiers sources nécessaires
+  )
+   
 # Library
-SET(LIBRARY_SOURCES nfc nfc-device nfc-emulation nfc-internal conf iso14443-subr mirror-subr target-subr ${DRIVERS_SOURCES} ${BUSES_SOURCES} ${CHIPS_SOURCES} ${WINDOWS_SOURCES})
+SET(LIBRARY_SOURCES 
+  ${LIBNFC_SOURCES}
+  ${CMAKE_CURRENT_SOURCE_DIR}/nfc-emulation.c 
+  ${CMAKE_CURRENT_SOURCE_DIR}/conf.c 
+  ${CMAKE_CURRENT_SOURCE_DIR}/iso14443-subr.c 
+  ${CMAKE_CURRENT_SOURCE_DIR}/mirror-subr.c 
+  ${DRIVERS_SOURCES} 
+  ${BUSES_SOURCES} 
+  ${CHIPS_SOURCES} 
+  ${WINDOWS_SOURCES}
+)
+ADD_LIBRARY(nfc SHARED ${LIBRARY_SOURCES})
+
+# Ajoutez les sources supplémentaires
+target_sources(nfc PRIVATE ${LIBRARY_SOURCES})
+target_sources(nfc PRIVATE ${UTILS_SOURCES})
+target_sources(nfc PRIVATE ${CONTEXT_SOURCES})
+
+# Include directories
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR})
+
 
 IF(LIBNFC_LOG)
   IF(WIN32)
     IF(MINGW)
       SET(CMAKE_C_FLAGS "-fgnu89-inline ${CMAKE_C_FLAGS}")
     ENDIF(MINGW)
-    LIST(APPEND LIBRARY_SOURCES log ../contrib/win32/libnfc/log-internal)
+    LIST(APPEND LIBRARY_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/log.c ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/win32/libnfc/log-internal.c)
   ELSE(WIN32)
-    LIST(APPEND LIBRARY_SOURCES log log-internal)
+    LIST(APPEND LIBRARY_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/log.c ${CMAKE_CURRENT_SOURCE_DIR}/log-internal.c)
   ENDIF(WIN32)
 ENDIF(LIBNFC_LOG)
-ADD_LIBRARY(nfc SHARED ${LIBRARY_SOURCES})
 
+# Après
 IF(PCSC_FOUND)
-  TARGET_LINK_LIBRARIES(nfc ${PCSC_LIBRARIES})
+  target_link_libraries(nfc PRIVATE ${PCSC_LIBRARIES})
 ENDIF(PCSC_FOUND)
 
 IF(LIBUSB_FOUND)
-  TARGET_LINK_LIBRARIES(nfc ${LIBUSB_LIBRARIES})
+  target_link_libraries(nfc PRIVATE ${LIBUSB_LIBRARIES})
 ENDIF(LIBUSB_FOUND)
 
 IF(LIBRT_FOUND)
-  TARGET_LINK_LIBRARIES(nfc ${LIBRT_LIBRARIES})
+  target_link_libraries(nfc PRIVATE ${LIBRT_LIBRARIES})
 ENDIF(LIBRT_FOUND)
+
+IF(WIN32)
+
+ENDIF()
 
 SET_TARGET_PROPERTIES(nfc PROPERTIES SOVERSION 6 VERSION 6.0.0)
 
 IF(WIN32)
   # Libraries that are windows specific
-  TARGET_LINK_LIBRARIES(nfc wsock32)
+  TARGET_LINK_LIBRARIES(nfc PRIVATE wsock32 winscard)
   IF(MINGW)
     ADD_CUSTOM_COMMAND(
       OUTPUT nfc.lib
@@ -114,4 +178,3 @@ IF(WIN32)
 ELSE(WIN32)
   INSTALL(TARGETS nfc LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT libraries)
 ENDIF(WIN32)
-

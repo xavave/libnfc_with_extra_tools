@@ -33,11 +33,11 @@
 
 #ifdef SLRE_DEBUG
 # ifndef DBG
-#  define DBG(x) printf x
+# define DBG(...) printf(__VA_ARGS__)
 # endif
 #else
 # ifndef DBG
-#  define DBG(x)
+# define DBG(...) do {} while(0)
 # endif
 #endif
 
@@ -195,15 +195,15 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
     step = re[i] == '(' ? info->brackets[bi + 1].len + 2 :
       get_op_len(re + i, re_len - i);
 
-    DBG(("%s [%.*s] [%.*s] re_len=%d step=%d i=%d j=%d\n", __func__,
-         re_len - i, re + i, s_len - j, s + j, re_len, step, i, j));
+    DBG("%s [%.*s] [%.*s] re_len=%d step=%d i=%d j=%d\n", __func__,
+         re_len - i, re + i, s_len - j, s + j, re_len, step, i, j);
 
     FAIL_IF(is_quantifier(&re[i]), SLRE_UNEXPECTED_QUANTIFIER);
     FAIL_IF(step <= 0, SLRE_INVALID_CHARACTER_SET);
 
     if (i + step < re_len && is_quantifier(re + i + step)) {
-      DBG(("QUANTIFIER: [%.*s]%c [%.*s]\n", step, re + i,
-           re[i + step], s_len - j, s + j));
+      DBG("QUANTIFIER: [%.*s]%c [%.*s]\n", step, re + i,
+           re[i + step], s_len - j, s + j);
       if (re[i + step] == '?') {
         int result = bar(re + i, step, s + j, s_len - j, info, bi);
         j += result > 0 ? result : 0;
@@ -240,7 +240,7 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
           nj = j + n2;
         }
 
-        DBG(("STAR/PLUS END: %d %d %d %d %d\n", j, nj, re_len - ni, n1, n2));
+        DBG("STAR/PLUS END: %d %d %d %d %d\n", j, nj, re_len - ni, n1, n2);
         FAIL_IF(re[i + step] == '+' && nj == j, SLRE_NO_MATCH);
 
         /* If while loop body above was not executed for the * quantifier,  */
@@ -255,15 +255,15 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
 
     if (re[i] == '[') {
       n = match_set(re + i + 1, re_len - (i + 2), s + j, info);
-      DBG(("SET %.*s [%.*s] -> %d\n", step, re + i, s_len - j, s + j, n));
+      DBG("SET %.*s [%.*s] -> %d\n", step, re + i, s_len - j, s + j, n);
       FAIL_IF(n <= 0, SLRE_NO_MATCH);
       j += n;
     } else if (re[i] == '(') {
       n = SLRE_NO_MATCH;
       bi++;
       FAIL_IF(bi >= info->num_brackets, SLRE_INTERNAL_ERROR);
-      DBG(("CAPTURING [%.*s] [%.*s] [%s]\n",
-           step, re + i, s_len - j, s + j, re + i + step));
+      DBG("CAPTURING [%.*s] [%.*s] [%s]\n",
+           step, re + i, s_len - j, s + j, re + i + step);
 
       if (re_len - (i + step) <= 0) {
         /* Nothing follows brackets */
@@ -277,7 +277,7 @@ static int bar(const char *re, int re_len, const char *s, int s_len,
         }
       }
 
-      DBG(("CAPTURED [%.*s] [%.*s]:%d\n", step, re + i, s_len - j, s + j, n));
+      DBG("CAPTURED [%.*s] [%.*s]:%d\n", step, re + i, s_len - j, s + j, n);
       FAIL_IF(n < 0, n);
       if (info->caps != NULL) {
         info->caps[bi - 1].ptr = s + j;
@@ -310,9 +310,9 @@ static int doh(const char *s, int s_len, struct regex_info *info, int bi) {
     len = b->num_branches == 0 ? b->len :
       i == b->num_branches ? (int) (b->ptr + b->len - p) :
       (int) (info->branches[b->branches + i].schlong - p);
-    DBG(("%s %d %d [%.*s] [%.*s]\n", __func__, bi, i, len, p, s_len, s));
+    DBG("%s %d %d [%.*s] [%.*s]\n", __func__, bi, i, len, p, s_len, s);
     result = bar(p, len, s, s_len, info, bi);
-    DBG(("%s <- %d\n", __func__, result));
+    DBG("%s <- %d\n", __func__, result);
   } while (result <= 0 && i++ < b->num_branches);  /* At least 1 iteration */
 
   return result;
@@ -408,8 +408,8 @@ static int foo(const char *re, int re_len, const char *s, int s_len,
       int ind = info->brackets[info->num_brackets - 1].len == -1 ?
         info->num_brackets - 1 : depth;
       info->brackets[ind].len = (int) (&re[i] - info->brackets[ind].ptr);
-      DBG(("SETTING BRACKET %d [%.*s]\n",
-           ind, info->brackets[ind].len, info->brackets[ind].ptr));
+      DBG("SETTING BRACKET %d [%.*s]\n",
+           ind, info->brackets[ind].len, info->brackets[ind].ptr);
       depth--;
       FAIL_IF(depth < 0, SLRE_UNBALANCED_BRACKETS);
       FAIL_IF(i > 0 && re[i - 1] == '(', SLRE_NO_MATCH);
@@ -432,6 +432,6 @@ int slre_match(const char *regexp, const char *s, int s_len,
   info.num_caps = num_caps;
   info.caps = caps;
 
-  DBG(("========================> [%s] [%.*s]\n", regexp, s_len, s));
+  DBG("========================> [%s] [%.*s]\n", regexp, s_len, s);
   return foo(regexp, (int) strlen(regexp), s, s_len, &info);
 }

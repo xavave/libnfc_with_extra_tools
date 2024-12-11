@@ -117,6 +117,7 @@ static const uint8_t _default_acl[] = { 0xff, 0x07, 0x80, 0x69 };
 static uint8_t* default_acl = _default_acl;
 static uint8_t* custom_acl = _default_acl;
 static uint8_t* pbtUID;
+static uint8_t* customsector;
 static const uint8_t _tag_uid[4] = { 0x00, 0x00, 0x00, 0x00 };
 static uint8_t* tag_uid = _tag_uid;
 //-p W -e A -u -d "blank_tag.dump" -k "GDump_01234567.mfd" -f -i 0   -s 5  -t 5
@@ -590,6 +591,7 @@ print_usage(const char* pcProgramName)
 	printf("								*** max block: 127 for MIFARE Plus 2K tags\n");
 	printf("								*** max block: 255 for 4K tags\n");
 	printf(" -a [ACL]				- Force custom ACL (4 bytes) instead of default FF078069.\n");
+	printf(" -b [custom sector]		- write a custom sector (96 chars for 48 bytes sector)\n");
 	printf(" -c <connection string>	- Use connection string if specific device is wanted\n");
 	printf(" -f						- Force using the keyfile even if UID does not match (optional)\n");
 
@@ -639,7 +641,7 @@ int main(int argc, const char* argv[])
 
 	// Parse command line arguments
 	//	printf("%s -p [f|r|R|w|W] -e [a|A|b|B] -u [0|01AB23CD] -i [0|1] -d <dump.mfd> -k <keys.mfd> -F\n", pcProgramName);
-	while ((ch = getopt(argc, argv, "p:e:u:i:d:k:s:t:a:c:fv")) != -1) {
+	while ((ch = getopt(argc, argv, "p:e:u:i:d:k:s:t:a:b:c:fv")) != -1) {
 		switch (ch) {
 		case 'f':
 			bForceKeyFile = true;
@@ -675,6 +677,22 @@ int main(int argc, const char* argv[])
 			}
 			bUseKeyA = (stricmp(optarg, "A") == 0);
 			bTolerateFailures = (strcmp(optarg, "A") == 0) || (strcmp(optarg, "B") == 0);
+			break;
+		case 'b':
+			if (optarg == NULL || strlen(optarg) != 96)
+			{
+				ERR("missing invalid argument after -b [custom sector] or custom sector size is wrong (it should be 96 chars for 48 bytes)");
+				exit(EXIT_FAILURE);
+			}
+			customsector = datahex(optarg);
+			uint8_t currentCustomSectorSize = sizeof(customsector) / sizeof(uint8_t);
+			if (currentCustomSectorSize != 48)
+			{
+				printf("current custom sector size: 0x%2x\n", currentCustomSectorSize);
+				ERR("invalid size for custom sector: it should be 48 bytes (4 blocks * 16 bytes)");
+
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'i':
 			if (strcmp(optarg, "0") == 0)

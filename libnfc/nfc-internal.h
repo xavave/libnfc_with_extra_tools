@@ -28,6 +28,9 @@
  * @file nfc-internal.h
  * @brief Internal defines and macros
  */
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef __NFC_INTERNAL_H__
 #define __NFC_INTERNAL_H__
@@ -228,3 +231,6 @@ void prepare_initiator_data(const nfc_modulation nm, uint8_t **ppbtInitiatorData
 int connstring_decode(const nfc_connstring connstring, const char *driver_name, const char *bus_name, char **pparam1, char **pparam2);
 
 #endif // __NFC_INTERNAL_H__
+#ifdef __cplusplus
+   }
+#endif

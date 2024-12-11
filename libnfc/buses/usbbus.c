@@ -30,7 +30,7 @@
 #include <stdlib.h>
 #include "usbbus.h"
 #include "log.h"
-#include <libusb-1.0/include/libusb.h>
+#include "../../libusb_1.0.27_binaries/include/libusb.h"
 #define __cplusplus
 
 #define LOG_CATEGORY "libnfc.bus.usbbus"

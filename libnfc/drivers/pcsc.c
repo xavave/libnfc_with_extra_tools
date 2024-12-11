@@ -38,8 +38,8 @@
 
 #include <nfc/nfc.h>
 
-#include "drivers/pcsc.h"
-#include "nfc-internal.h"
+#include "./pcsc.h"
+#include "../nfc-internal.h"
 
 // Bus
 #ifdef __APPLE__

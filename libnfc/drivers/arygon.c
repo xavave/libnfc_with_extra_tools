@@ -46,11 +46,11 @@
 
 #include <nfc/nfc.h>
 
-#include "drivers.h"
-#include "nfc-internal.h"
-#include "chips/pn53x.h"
-#include "chips/pn53x-internal.h"
-#include "uart.h"
+#include "../drivers.h"
+#include "../nfc-internal.h"
+#include "../chips/pn53x.h"
+#include "../chips/pn53x-internal.h"
+#include "../buses/uart.h"
 
 /** @def DEV_ARYGON_PROTOCOL_ARYGON_ASCII
  * @brief High level language in ASCII format. (Common µC commands and Mifare® commands)

@@ -37,12 +37,26 @@
  * @file nfc-utils.c
  * @brief Provide some examples shared functions like print, parity calculation, options parsing.
  */
-#include <nfc/nfc.h>
+#define BUILDING_NFCUTILS 1
+#ifdef _WIN32
+#ifdef BUILDING_NFCUTILS
+#define NFCUTILS_API __declspec(dllexport)
+#else
+#define NFCUTILS_API __declspec(dllimport)
+#endif
+#else
+#define NFCUTILS_API
+#endif
+
 #include <err.h>
 
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include "nfc-utils.h"
+#include "..\include\nfc\nfc.h"
 
-uint8_t
+ uint8_t
 oddparity(const uint8_t bt)
 {
   // cf http://graphics.stanford.edu/~seander/bithacks.html#ParityParallel
@@ -59,7 +73,7 @@ oddparity_bytes_ts(const uint8_t *pbtData, const size_t szLen, uint8_t *pbtPar)
   }
 }
 
-void
+NFCUTILS_API void
 print_hex(const uint8_t *pbtData, const size_t szBytes)
 {
   size_t  szPos;
@@ -70,7 +84,7 @@ print_hex(const uint8_t *pbtData, const size_t szBytes)
   printf("\n");
 }
 
-void
+NFCUTILS_API void
 print_hex_bits(const uint8_t *pbtData, const size_t szBits)
 {
   uint8_t uRemainder;
@@ -92,7 +106,7 @@ print_hex_bits(const uint8_t *pbtData, const size_t szBits)
   printf("\n");
 }
 
-void
+NFCUTILS_API void
 print_hex_par(const uint8_t *pbtData, const size_t szBits, const uint8_t *pbtDataPar)
 {
   uint8_t uRemainder;
@@ -119,7 +133,7 @@ print_hex_par(const uint8_t *pbtData, const size_t szBits, const uint8_t *pbtDat
   printf("\n");
 }
 
-void
+NFCUTILS_API void
 print_nfc_target(const nfc_target *pnt, bool verbose)
 {
   char *s;
@@ -136,4 +150,42 @@ long long unsigned int bytes_to_num(uint8_t* src, uint32_t len)
         src++;
     }
     return num;
+}
+uint8_t* datahex(char* string) {
+
+    if(string == NULL) 
+       return NULL;
+
+    size_t slength = strlen(string);
+    if((slength % 2) != 0) // must be even
+       return NULL;
+
+    size_t dlength = slength / 2;
+
+    uint8_t* data = malloc(dlength);
+    if (data == NULL) // Vérification de l'allocation réussie
+        return NULL;
+    memset(data, 0, dlength);
+
+    size_t index = 0;
+    while (index < slength) {
+        char c = string[index];
+        int value = 0;
+        if(c >= '0' && c <= '9')
+          value = (c - '0');
+        else if (c >= 'A' && c <= 'F') 
+          value = (10 + (c - 'A'));
+        else if (c >= 'a' && c <= 'f')
+          value = (10 + (c - 'a'));
+        else {
+          free(data);
+          return NULL;
+        }
+
+        data[(index/2)] += value << (((index + 1) % 2) * 4);
+
+        index++;
+    }
+
+    return data;
 }

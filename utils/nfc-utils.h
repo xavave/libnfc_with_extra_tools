@@ -45,7 +45,10 @@
 #  include <stdlib.h>
 #  include <string.h>
 #  include <err.h>
-
+#  include <stdint.h>  // Pour uint8_t et uint32_t
+#  include <stddef.h>  // Pour size_t
+#  include <stdbool.h> // Pour bool
+#  include "../../include/nfc/nfc-types.h" // Inclure les définitions de nfc_target_info et nfc_modulation
 /**
  * @macro DBG
  * @brief Print a message of standard output only in DEBUG mode
@@ -91,15 +94,18 @@
 #ifndef MAX
 #define MAX(a,b) (((a) > (b)) ? (a) : (b))
 #endif
-
+#ifndef NFCUTILS_API
+#define NFCUTILS_API
+#endif
 uint8_t  oddparity(const uint8_t bt);
 void    oddparity_bytes_ts(const uint8_t *pbtData, const size_t szLen, uint8_t *pbtPar);
 
-void    print_hex(const uint8_t *pbtData, const size_t szLen);
-void    print_hex_bits(const uint8_t *pbtData, const size_t szBits);
-void    print_hex_par(const uint8_t *pbtData, const size_t szBits, const uint8_t *pbtDataPar);
+NFCUTILS_API void    print_hex(const uint8_t *pbtData, const size_t szLen);
+NFCUTILS_API void    print_hex_bits(const uint8_t *pbtData, const size_t szBits);
+NFCUTILS_API void    print_hex_par(const uint8_t *pbtData, const size_t szBits, const uint8_t *pbtDataPar);
 
-void    print_nfc_target(const nfc_target *pnt, bool verbose);
+NFCUTILS_API void    print_nfc_target(const nfc_target *pnt, bool verbose);
 long long unsigned int bytes_to_num(uint8_t * src, uint32_t len);
+uint8_t* datahex(char* string);
 
 #endif

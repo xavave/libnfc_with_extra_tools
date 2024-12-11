@@ -70,63 +70,72 @@
  * @defgroup string-converter  To-string converters
  * The functionnality documented below allow to retreive some information in text format.
  */
-
+#ifdef _WIN32
+#include "../contrib/windows.h"
+#endif
 #ifdef HAVE_CONFIG_H
-#  include "config.h"
+#include "config.h"
 #endif // HAVE_CONFIG_H
+#include "log.h"
 
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
-#include <assert.h>
-
-#include <nfc/nfc.h>
-
 #include "nfc-internal.h"
+
+void nfc_free(void* p) {
+    free(p);
+}
+
+#include <assert.h>
+#include <../include/nfc/nfc.h>
+#include <../include/nfc/nfc-types.h>
+
+
 #include "target-subr.h"
 #include "drivers.h"
 
 
 #if defined (DRIVER_ACR122_PCSC_ENABLED)
-#  include "drivers/acr122_pcsc.h"
+#  include "./drivers/acr122_pcsc.h"
 #endif /* DRIVER_ACR122_PCSC_ENABLED */
 
 #if defined (DRIVER_PCSC_ENABLED)
-#  include "drivers/pcsc.h"
+#  include "./drivers/pcsc.h"
 #endif /* DRIVER_PCSC_ENABLED */
 
 #if defined (DRIVER_ACR122_USB_ENABLED)
-#  include "drivers/acr122_usb.h"
+#  include "./drivers/acr122_usb.h"
 #endif /* DRIVER_ACR122_USB_ENABLED */
 
 #if defined (DRIVER_ACR122S_ENABLED)
-#  include "drivers/acr122s.h"
+#  include "./drivers/acr122s.h"
 #endif /* DRIVER_ACR122S_ENABLED */
 
 #if defined (DRIVER_PN53X_USB_ENABLED)
-#  include "drivers/pn53x_usb.h"
+#  include "./drivers/pn53x_usb.h"
 #endif /* DRIVER_PN53X_USB_ENABLED */
 
 #if defined (DRIVER_ARYGON_ENABLED)
-#  include "drivers/arygon.h"
+#  include "./drivers/arygon.h"
 #endif /* DRIVER_ARYGON_ENABLED */
 
 #if defined (DRIVER_PN532_UART_ENABLED)
-#  include "drivers/pn532_uart.h"
+#  include "./drivers/pn532_uart.h"
 #endif /* DRIVER_PN532_UART_ENABLED */
 
 #if defined (DRIVER_PN532_SPI_ENABLED)
-#  include "drivers/pn532_spi.h"
+#  include "./drivers/pn532_spi.h"
 #endif /* DRIVER_PN532_SPI_ENABLED */
 
 #if defined (DRIVER_PN532_I2C_ENABLED)
-#  include "drivers/pn532_i2c.h"
+#  include "./drivers/pn532_i2c.h"
 #endif /* DRIVER_PN532_I2C_ENABLED */
 
 #if defined (DRIVER_PN71XX_ENABLED)
-#  include "drivers/pn71xx.h"
+#  include "./drivers/pn71xx.h"
 #endif /* DRIVER_PN71XX_ENABLED */
 
 
@@ -1339,11 +1348,6 @@ nfc_version(void)
  *
  * @param pointer on buffer that needs to be freed
  */
-void
-nfc_free(void *p)
-{
-  free(p);
-}
 
 /** @ingroup misc
  * @brief Print information about NFC device

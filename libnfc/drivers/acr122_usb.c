@@ -65,13 +65,13 @@ Thanks to d18c7db and Okko for example code
 #include <sys/types.h>
 #endif
 #include <nfc/nfc.h>
-#include <libusb.h>
+#include "../../libusb_1.0.27_binaries/include/libusb.h"
 
-#include "nfc-internal.h"
-#include "chips/pn53x.h"
-#include "chips/pn53x-internal.h"
-#include "drivers/acr122_usb.h"
-#include "buses/usbbus.h"
+#include "../nfc-internal.h"
+#include "../chips/pn53x.h"
+#include "../chips/pn53x-internal.h"
+#include "./acr122_usb.h"
+#include "../buses/usbbus.h"
 
 #define ACR122_USB_DRIVER_NAME "acr122_usb"
 

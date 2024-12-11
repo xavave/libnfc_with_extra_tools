@@ -41,11 +41,11 @@
 #include <stdlib.h>
 
 #include "nfc/nfc.h"
-#include "nfc-internal.h"
+#include "../nfc-internal.h"
 #include "pn53x.h"
 #include "pn53x-internal.h"
 
-#include "mirror-subr.h"
+#include "../mirror-subr.h"
 
 #define LOG_CATEGORY "libnfc.chip.pn53x"
 #define LOG_GROUP NFC_LOG_GROUP_CHIP

@@ -849,35 +849,49 @@ void mf_configure(nfc_device *pdi)
 {
   if (nfc_initiator_init(pdi) < 0) {
     nfc_perror(pdi, "nfc_initiator_init");
+    nfc_close(pdi);
+    nfc_exit(context);
     exit(EXIT_FAILURE);
   }
   // Drop the field for a while, so can be reset
   if (nfc_device_set_property_bool(pdi, NP_ACTIVATE_FIELD, false) < 0) {
     nfc_perror(pdi, "nfc_device_set_property_bool activate field");
+    nfc_close(pdi);
+    nfc_exit(context);
     exit(EXIT_FAILURE);
   }
   // Let the reader only try once to find a tag
   if (nfc_device_set_property_bool(pdi, NP_INFINITE_SELECT, false) < 0) {
     nfc_perror(pdi, "nfc_device_set_property_bool infinite select");
+    nfc_close(pdi);
+    nfc_exit(context);
     exit(EXIT_FAILURE);
   }
   // Configure the CRC and Parity settings
   if (nfc_device_set_property_bool(pdi, NP_HANDLE_CRC, true) < 0) {
     nfc_perror(pdi, "nfc_device_set_property_bool crc");
+    nfc_close(pdi);
+    nfc_exit(context);
     exit(EXIT_FAILURE);
   }
   if (nfc_device_set_property_bool(pdi, NP_HANDLE_PARITY, true) < 0) {
     nfc_perror(pdi, "nfc_device_set_property_bool parity");
+    nfc_close(pdi);
+    nfc_exit(context);
     exit(EXIT_FAILURE);
   }
   // Disable ISO14443-4 switching in order to read devices that emulate Mifare Classic with ISO14443-4 compliance.
   if (nfc_device_set_property_bool(pdi, NP_AUTO_ISO14443_4, false) < 0) {
     nfc_perror(pdi, "nfc_device_set_property_bool");
+    nfc_close(pdi);
+    nfc_exit(context);
     exit(EXIT_FAILURE);
   }
   // Enable the field so more power consuming cards can power themselves up
   if (nfc_device_set_property_bool(pdi, NP_ACTIVATE_FIELD, true) < 0) {
     nfc_perror(pdi, "nfc_device_set_property_bool activate field");
+    nfc_close(pdi);
+    nfc_exit(context);
     exit(EXIT_FAILURE);
   }
 }
@@ -934,14 +948,15 @@ void mf_anticollision(mftag t, mfreader r)
 {
   if (nfc_initiator_select_passive_target(r.pdi, nm, NULL, 0, &t.nt) < 0) {
     nfc_perror(r.pdi, "nfc_initiator_select_passive_target");
+    nfc_close(r.pdi);
+    nfc_exit(context);
     ERR("Tag has been removed");
     exit(EXIT_FAILURE);
   }
 }
 
 
-bool
-get_rats_is_2k(mftag t, mfreader r)
+bool get_rats_is_2k(mftag t, mfreader r)
 {
   int res;
   uint8_t abtRx[MAX_FRAME_LEN];
@@ -949,6 +964,7 @@ get_rats_is_2k(mftag t, mfreader r)
   // Use raw send/receive methods
   if (nfc_device_set_property_bool(r.pdi, NP_EASY_FRAMING, false) < 0) {
     nfc_perror(r.pdi, "nfc_configure");
+
     return false;
   }
   res = nfc_initiator_transceive_bytes(r.pdi, abtRats, sizeof(abtRats), abtRx, sizeof(abtRx), 0);

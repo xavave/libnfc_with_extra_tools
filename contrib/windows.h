@@ -25,24 +25,23 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
 
-/**
- * @file windows.h
- * @brief Provide some windows related hacks due to lack of POSIX compat
- */
+ /**
+  * @file windows.h
+  * @brief Provide some windows related hacks due to lack of POSIX compat
+  */
 
 #ifndef __WINDOWS_H__
 #define __WINDOWS_H__
 
 #  include <windows.h>
-#  undef interface 
 #  include <winerror.h>
 #  include "win32/err.h"
 #  if defined (__MINGW32__)
-/*
- * Cheating here on the snprintf to incorporate the format argument
- * into the VA_ARGS. Else we get MinGW errors regarding number of arguments
- * if doing a fixed string with no arguments.
-*/
+  /*
+   * Cheating here on the snprintf to incorporate the format argument
+   * into the VA_ARGS. Else we get MinGW errors regarding number of arguments
+   * if doing a fixed string with no arguments.
+  */
 #    define snprintf(S, n, ...) sprintf(S, __VA_ARGS__)
 #    define pipe(fds) _pipe(fds, 5000, _O_BINARY)
 #    define ETIMEDOUT     WSAETIMEDOUT
@@ -55,11 +54,15 @@
 #    define strdup _strdup
 #  endif
 
-/*
- * setenv and unsetenv are not Windows compliant nor implemented in MinGW.
- * These declarations get rid of the "implicit declaration warning."
- */
-int setenv(const char *name, const char *value, int overwrite);
-void unsetenv(const char *name);
+  /*
+   * setenv and unsetenv are not Windows compliant nor implemented in MinGW.
+   * These declarations get rid of the "implicit declaration warning."
+   */
+#ifdef _WIN32
+#define setenv(name, value, overwrite) _putenv_s(name, value)
+#else
+int setenv(const char* name, const char* value, int overwrite);
+#endif
+void unsetenv(const char* name);
 
 #endif

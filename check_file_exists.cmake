@@ -1,0 +1,5 @@
+if(EXISTS "${CMAKE_BINARY_DIR}/lib/nfcutils.lib")
+  message(STATUS "Fichier nfcutils.lib existe.")
+else()
+  message(FATAL_ERROR "Fichier nfcutils.lib n'existe pas.")
+endif()
