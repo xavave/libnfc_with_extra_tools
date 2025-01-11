@@ -148,7 +148,8 @@ crack_states_thread(void* x) {
         if (bucket) {
             const uint64_t key = crack_states_bitsliced(thread_arg->cuid, thread_arg->best_first_bytes, bucket, &keys_found, &num_keys_tested, nonces_to_bruteforce, bf_test_nonce_2nd_byte, thread_arg->nonces);
             if (key != -1) {
-                __sync_fetch_and_add(&keys_found, 1);
+                InterlockedAdd64((volatile INT32*)keys_found, 1);
+                //__sync_fetch_and_add(&keys_found, 1);
                 char progress_text[80];
                 sprintf(progress_text, "Brute force phase completed. Key found: %012" PRIx64, key);
                 if (thread_arg->trgKey == MC_AUTH_A){

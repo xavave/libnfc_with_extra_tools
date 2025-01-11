@@ -1388,12 +1388,3 @@ void num_to_bytes(uint64_t n, uint32_t len, uint8_t *dest)
   }
 }
 
-long long unsigned int bytes_to_num(uint8_t *src, uint32_t len)
-{
-  uint64_t num = 0;
-  while (len--) {
-    num = (num << 8) | (*src);
-    src++;
-  }
-  return num;
-}

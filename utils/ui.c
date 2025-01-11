@@ -12,9 +12,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdarg.h>
-#include <pthread.h>
-
 #include "ui.h"
+#include "pthread.h"
 
 bool lastnewl = true;
 

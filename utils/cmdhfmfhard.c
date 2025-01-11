@@ -273,7 +273,19 @@ static inline void set_bit24(uint32_t *bitarray, uint32_t index) {
 static inline uint32_t test_bit24(uint32_t *bitarray, uint32_t index) {
     return bitarray[index >> 5] & (0x80000000 >> (index & 0x0000001f));
 }
-
+#ifdef _MSC_VER
+#include <intrin.h>
+static inline unsigned int builtin_clz(unsigned int x) {
+    unsigned long leading_zero = 0;
+    // _BitScanReverse recherche le bit le plus significatif à 1
+    if (_BitScanReverse(&leading_zero, x))
+        return 31 - leading_zero;
+    else
+        return 32; // si x = 0, tous les bits sont 0
+}
+#else
+#define builtin_clz __builtin_clz
+#endif
 
 static inline uint32_t next_state(uint32_t *bitarray, uint32_t state) {
     if (++state == 1 << 24) return 1 << 24;
@@ -292,7 +304,7 @@ static inline uint32_t next_state(uint32_t *bitarray, uint32_t state) {
         state += 0x20;
     }
     if (state >= 1 << 24) return 1 << 24;
-    return state + __builtin_clz(bitarray[index]);
+    return state + builtin_clz(bitarray[index]);
 }
 
 
@@ -1689,7 +1701,7 @@ static bool brute_force(uint8_t trgBlock, uint8_t trgKey) {
     if (known_target_key != -1) {
         TestIfKeyExists(known_target_key);
     }
-    return brute_force_bs(NULL, candidates, cuid, num_acquired_nonces, maximum_states, nonces, best_first_bytes, trgBlock, trgKey);
+    return brute_force_bs(NULL, candidates, cuid, num_acquired_nonces, maximum_states, nonces, best_first_bytes, trgKey);
 }
 
 

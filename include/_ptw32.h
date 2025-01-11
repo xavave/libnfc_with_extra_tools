@@ -69,7 +69,7 @@
 #elif defined  __PTW32_BUILD
 # define  __PTW32_DLLPORT __declspec (dllexport)
 #else
-# define  __PTW32_DLLPORT /*__declspec (dllimport)*/
+# define  __PTW32_DLLPORT __declspec (dllimport)
 #endif
 
 #ifndef  __PTW32_CDECL

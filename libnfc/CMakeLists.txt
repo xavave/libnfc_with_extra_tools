@@ -17,7 +17,7 @@ IF(WIN32)
 ENDIF(WIN32)
 
 # Library's chips
-SET(CHIPS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/chips/pn53x.c)
+SET(CHIPS_SOURCES   ${CMAKE_CURRENT_SOURCE_DIR}/chips/pn53x.c)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/chips)
 
 # Library's buses
@@ -68,6 +68,7 @@ IF(LIBUSB_FOUND)
 ENDIF(LIBUSB_FOUND)
 
  set(DRIVER_SOURCES
+   
     drivers/acr122_pcsc.c
     drivers/acr122s.c
     drivers/arygon.c
@@ -98,6 +99,7 @@ ENDIF(LIBUSB_FOUND)
     nfc-internal.c
     nfc-device.c
     target-subr.c
+   
     # Ajoutez tous les autres fichiers sources nécessaires
   )
    
