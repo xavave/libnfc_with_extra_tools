@@ -209,18 +209,6 @@ IF(PCSC_INCLUDE_DIRS)
   LINK_DIRECTORIES(${PCSC_LIBRARY_DIRS})
 ENDIF(PCSC_INCLUDE_DIRS)
 
-add_library(libnfc SHARED
-libnfc/chips/pn53x.c
-libnfc/drivers/acr122_pcsc.c
-libnfc/iso14443-subr.c
-libnfc/log-internal.c
- libnfc/log.c
-   libnfc/nfc.c
-    libnfc/nfc-internal.c
-   utils/nfc-utils.c
-   libnfc/target-subr.c)  # Assurez-vous que ce fichier contient la définition de snprint_nfc_target
-  # Ajoutez ici les autres fichiers sources nécessaires
-
   # Ajouter le répertoire des modules CMake personnalisés
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules")
 
@@ -234,17 +222,8 @@ if(LIBUSB_FOUND)
 endif(LIBUSB_FOUND)
 
 IF(LIBUSB_INCLUDE_DIRS)
-    
-    target_include_directories(libnfc PRIVATE ${LIBUSB_INCLUDE_DIRS})
-    target_link_libraries(libnfc PRIVATE ${LIBUSB_LIBRARIES})
-    
   SET(LIBUSB_FOUND TRUE)
 ENDIF(LIBUSB_INCLUDE_DIRS)
-
-  
-IF(PCSC_LIBRARIES)
-  target_link_libraries(libnfc PRIVATE ${PCSC_LIBRARIES})
-ENDIF(PCSC_LIBRARIES)
 # version.rc for Windows
 IF(WIN32)
   # Date for filling in rc file information
