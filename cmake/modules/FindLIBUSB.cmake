@@ -3,14 +3,14 @@
    find_path(LIBUSB_INCLUDE_DIRS
      NAMES libusb.h
      HINTS
-       "../../libusb_1.0.30_binaries/include"
-       "../../libusb_1.0.30_binaries/include/libusb-1.0"
+       "${CMAKE_SOURCE_DIR}/libusb_1.0.30_binaries/include"
+       "${CMAKE_SOURCE_DIR}/libusb_1.0.30_binaries/include/libusb-1.0"
    )
 
    find_library(LIBUSB_LIBRARIES
      NAMES  libusb-1.0 
      HINTS
-       "../../libusb_1.0.30_binaries/VS2022/MS64/dll"
+       "${CMAKE_SOURCE_DIR}/libusb_1.0.30_binaries/VS2022/MS64/dll"
    )
 
    include(FindPackageHandleStandardArgs)
