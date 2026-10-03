@@ -458,7 +458,7 @@ int
 nfc_device_set_property_int(nfc_device *pnd, const nfc_property property, const int value)
 {
   log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "set_property_int %s %s", nfc_property_name[property], value ? "True" : "False");
-  HAL(device_set_property_int, pnd, property, value);
+  return HAL(device_set_property_int, pnd, property, value);
 }
 
 
@@ -478,7 +478,7 @@ int
 nfc_device_set_property_bool(nfc_device *pnd, const nfc_property property, const bool bEnable)
 {
   log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "set_property_bool %s %s", nfc_property_name[property], bEnable ? "True" : "False");
-  HAL(device_set_property_bool, pnd, property, bEnable);
+  return HAL(device_set_property_bool, pnd, property, bEnable);
 }
 
 /** @ingroup initiator
@@ -529,7 +529,7 @@ nfc_initiator_init(nfc_device *pnd)
   // Disallow multiple frames
   if ((res = nfc_device_set_property_bool(pnd, NP_ACCEPT_MULTIPLE_FRAMES, false)) < 0)
     return res;
-  HAL(initiator_init, pnd);
+  return HAL(initiator_init, pnd);
 }
 
 /** @ingroup initiator
@@ -544,7 +544,7 @@ nfc_initiator_init(nfc_device *pnd)
 int
 nfc_initiator_init_secure_element(nfc_device *pnd)
 {
-  HAL(initiator_init_secure_element, pnd);
+  return HAL(initiator_init_secure_element, pnd);
 }
 
 /** @ingroup initiator
@@ -578,29 +578,27 @@ nfc_initiator_select_passive_target(nfc_device *pnd,
 {
   uint8_t *abtInit = NULL;
   uint8_t maxAbt = MAX(12, szInitData);
-  uint8_t *abtTmpInit = malloc(sizeof(uint8_t) * maxAbt);
   size_t  szInit = 0;
   int res;
   if ((res = nfc_device_validate_modulation(pnd, N_INITIATOR, &nm)) != NFC_SUCCESS) {
-    free(abtTmpInit);
     return res;
   }
   if (szInitData == 0) {
     // Provide default values, if any
     prepare_initiator_data(nm, &abtInit, &szInit);
-    free(abtTmpInit);
-  } else if (nm.nmt == NMT_ISO14443A) {
-    abtInit = abtTmpInit;
+    return HAL(initiator_select_passive_target, pnd, nm, abtInit, szInit, pnt);
+  }
+
+  abtInit = malloc(sizeof(uint8_t) * maxAbt);
+  if (nm.nmt == NMT_ISO14443A) {
     iso14443_cascade_uid(pbtInitData, szInitData, abtInit, &szInit);
   } else {
-    abtInit = abtTmpInit;
     memcpy(abtInit, pbtInitData, szInitData);
-    free(abtTmpInit);
     szInit = szInitData;
   }
-  HAL(initiator_select_passive_target, pnd, nm, abtInit, szInit, pnt);
-
-  free(abtTmpInit);
+  res = HAL(initiator_select_passive_target, pnd, nm, abtInit, szInit, pnt);
+  free(abtInit);
+  return res;
 }
 
 /** @ingroup initiator
@@ -692,7 +690,7 @@ nfc_initiator_poll_target(nfc_device *pnd,
                           const uint8_t uiPollNr, const uint8_t uiPeriod,
                           nfc_target *pnt)
 {
-  HAL(initiator_poll_target, pnd, pnmModulations, szModulations, uiPollNr, uiPeriod, pnt);
+  return HAL(initiator_poll_target, pnd, pnmModulations, szModulations, uiPollNr, uiPeriod, pnt);
 }
 
 
@@ -721,7 +719,7 @@ nfc_initiator_select_dep_target(nfc_device *pnd,
                                 const nfc_dep_mode ndm, const nfc_baud_rate nbr,
                                 const nfc_dep_info *pndiInitiator, nfc_target *pnt, const int timeout)
 {
-  HAL(initiator_select_dep_target, pnd, ndm, nbr, pndiInitiator, pnt, timeout);
+  return HAL(initiator_select_dep_target, pnd, ndm, nbr, pndiInitiator, pnt, timeout);
 }
 
 /** @ingroup initiator
@@ -792,7 +790,7 @@ end:
 int
 nfc_initiator_deselect_target(nfc_device *pnd)
 {
-  HAL(initiator_deselect_target, pnd);
+  return HAL(initiator_deselect_target, pnd);
 }
 
 /** @ingroup initiator
@@ -827,7 +825,7 @@ int
 nfc_initiator_transceive_bytes(nfc_device *pnd, const uint8_t *pbtTx, const size_t szTx, uint8_t *pbtRx,
                                const size_t szRx, int timeout)
 {
-  HAL(initiator_transceive_bytes, pnd, pbtTx, szTx, pbtRx, szRx, timeout)
+  return HAL(initiator_transceive_bytes, pnd, pbtTx, szTx, pbtRx, szRx, timeout);
 }
 
 /** @ingroup initiator
@@ -873,7 +871,7 @@ nfc_initiator_transceive_bits(nfc_device *pnd,
                               uint8_t *pbtRxPar)
 {
   (void)szRx;
-  HAL(initiator_transceive_bits, pnd, pbtTx, szTxBits, pbtTxPar, pbtRx, pbtRxPar);
+  return HAL(initiator_transceive_bits, pnd, pbtTx, szTxBits, pbtTxPar, pbtRx, pbtRxPar);
 }
 
 /** @ingroup initiator
@@ -908,7 +906,7 @@ nfc_initiator_transceive_bytes_timed(nfc_device *pnd,
                                      uint8_t *pbtRx, const size_t szRx,
                                      uint32_t *cycles)
 {
-  HAL(initiator_transceive_bytes_timed, pnd, pbtTx, szTx, pbtRx, szRx, cycles);
+  return HAL(initiator_transceive_bytes_timed, pnd, pbtTx, szTx, pbtRx, szRx, cycles);
 }
 
 /** @ingroup initiator
@@ -924,7 +922,7 @@ nfc_initiator_transceive_bytes_timed(nfc_device *pnd,
 int
 nfc_initiator_target_is_present(nfc_device *pnd, const nfc_target *pnt)
 {
-  HAL(initiator_target_is_present, pnd, pnt);
+  return HAL(initiator_target_is_present, pnd, pnt);
 }
 
 /** @ingroup initiator
@@ -956,7 +954,7 @@ nfc_initiator_transceive_bits_timed(nfc_device *pnd,
                                     uint32_t *cycles)
 {
   (void)szRx;
-  HAL(initiator_transceive_bits_timed, pnd, pbtTx, szTxBits, pbtTxPar, pbtRx, pbtRxPar, cycles);
+  return HAL(initiator_transceive_bits_timed, pnd, pbtTx, szTxBits, pbtTxPar, pbtRx, pbtRxPar, cycles);
 }
 
 /** @ingroup target
@@ -1020,7 +1018,7 @@ nfc_target_init(nfc_device *pnd, nfc_target *pnt, uint8_t *pbtRx, const size_t s
   if ((res = nfc_device_set_property_bool(pnd, NP_ACTIVATE_FIELD, false)) < 0)
     return res;
 
-  HAL(target_init, pnd, pnt, pbtRx, szRx, timeout);
+  return HAL(target_init, pnd, pnt, pbtRx, szRx, timeout);
 }
 
 /** @ingroup dev
@@ -1036,7 +1034,7 @@ nfc_target_init(nfc_device *pnd, nfc_target *pnt, uint8_t *pbtRx, const size_t s
 int
 nfc_idle(nfc_device *pnd)
 {
-  HAL(idle, pnd);
+  return HAL(idle, pnd);
 }
 
 /** @ingroup dev
@@ -1053,7 +1051,7 @@ nfc_idle(nfc_device *pnd)
 int
 nfc_abort_command(nfc_device *pnd)
 {
-  HAL(abort_command, pnd);
+  return HAL(abort_command, pnd);
 }
 
 /** @ingroup target
@@ -1074,7 +1072,7 @@ nfc_abort_command(nfc_device *pnd)
 int
 nfc_target_send_bytes(nfc_device *pnd, const uint8_t *pbtTx, const size_t szTx, int timeout)
 {
-  HAL(target_send_bytes, pnd, pbtTx, szTx, timeout);
+  return HAL(target_send_bytes, pnd, pbtTx, szTx, timeout);
 }
 
 /** @ingroup target
@@ -1094,7 +1092,7 @@ nfc_target_send_bytes(nfc_device *pnd, const uint8_t *pbtTx, const size_t szTx, 
 int
 nfc_target_receive_bytes(nfc_device *pnd, uint8_t *pbtRx, const size_t szRx, int timeout)
 {
-  HAL(target_receive_bytes, pnd, pbtRx, szRx, timeout);
+  return HAL(target_receive_bytes, pnd, pbtRx, szRx, timeout);
 }
 
 /** @ingroup target
@@ -1111,7 +1109,7 @@ nfc_target_receive_bytes(nfc_device *pnd, uint8_t *pbtRx, const size_t szRx, int
 int
 nfc_target_send_bits(nfc_device *pnd, const uint8_t *pbtTx, const size_t szTxBits, const uint8_t *pbtTxPar)
 {
-  HAL(target_send_bits, pnd, pbtTx, szTxBits, pbtTxPar);
+  return HAL(target_send_bits, pnd, pbtTx, szTxBits, pbtTxPar);
 }
 
 /** @ingroup target
@@ -1133,7 +1131,7 @@ nfc_target_send_bits(nfc_device *pnd, const uint8_t *pbtTx, const size_t szTxBit
 int
 nfc_target_receive_bits(nfc_device *pnd, uint8_t *pbtRx, const size_t szRx, uint8_t *pbtRxPar)
 {
-  HAL(target_receive_bits, pnd, pbtRx, szRx, pbtRxPar);
+  return HAL(target_receive_bits, pnd, pbtRx, szRx, pbtRxPar);
 }
 
 static struct sErrorMessage {
@@ -1252,7 +1250,7 @@ nfc_device_get_connstring(nfc_device *pnd)
 int
 nfc_device_get_supported_modulation(nfc_device *pnd, const nfc_mode mode, const nfc_modulation_type **const supported_mt)
 {
-  HAL(get_supported_modulation, pnd, mode, supported_mt);
+  return HAL(get_supported_modulation, pnd, mode, supported_mt);
 }
 
 /** @ingroup data
@@ -1266,7 +1264,7 @@ nfc_device_get_supported_modulation(nfc_device *pnd, const nfc_mode mode, const 
 int
 nfc_device_get_supported_baud_rate(nfc_device *pnd, const nfc_modulation_type nmt, const nfc_baud_rate **const supported_br)
 {
-  HAL(get_supported_baud_rate, pnd, N_INITIATOR, nmt, supported_br);
+  return HAL(get_supported_baud_rate, pnd, N_INITIATOR, nmt, supported_br);
 }
 
 /** @ingroup data
@@ -1280,7 +1278,7 @@ nfc_device_get_supported_baud_rate(nfc_device *pnd, const nfc_modulation_type nm
 int
 nfc_device_get_supported_baud_rate_target_mode(nfc_device *pnd, const nfc_modulation_type nmt, const nfc_baud_rate **const supported_br)
 {
-  HAL(get_supported_baud_rate, pnd, N_TARGET, nmt, supported_br);
+  return HAL(get_supported_baud_rate, pnd, N_TARGET, nmt, supported_br);
 }
 
 /** @ingroup data
@@ -1360,7 +1358,7 @@ nfc_version(void)
 int
 nfc_device_get_information_about(nfc_device *pnd, char **buf)
 {
-  HAL(device_get_information_about, pnd, buf);
+  return HAL(device_get_information_about, pnd, buf);
 }
 
 /** @ingroup string-converter

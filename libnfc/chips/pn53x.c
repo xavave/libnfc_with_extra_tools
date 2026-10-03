@@ -1146,121 +1146,122 @@ pn53x_initiator_select_passive_target_ext(struct nfc_device* pnd,
 	nfc_target nttmp;
 	memset(&nttmp, 0x00, sizeof(nfc_target));
 
-	if (nm.nmt == NMT_ISO14443BI || nm.nmt == NMT_ISO14443B2SR || nm.nmt == NMT_ISO14443B2CT || nm.nmt == NMT_ISO14443BICLASS) {
-		if (CHIP_DATA(pnd)->type == RCS360) {
-			// TODO add support for RC-S360, at the moment it refuses to send raw frames without a first select
-			pnd->last_error = NFC_ENOTIMPL;
-			return pnd->last_error;
-		}
-		// No native support in InListPassiveTarget so we do discovery by hand
-		if ((res = nfc_device_set_property_bool(pnd, NP_FORCE_ISO14443_B, true)) < 0) {
-			return res;
-		}
-		if ((res = nfc_device_set_property_bool(pnd, NP_FORCE_SPEED_106, true)) < 0) {
-			return res;
-		}
-		if ((res = nfc_device_set_property_bool(pnd, NP_HANDLE_CRC, true)) < 0) {
-			return res;
-		}
-		if ((res = nfc_device_set_property_bool(pnd, NP_EASY_FRAMING, false)) < 0) {
-			return res;
-		}
-		bool found = false;
-		do {
-			if (nm.nmt == NMT_ISO14443B2SR) {
-				// Some work to do before getting the UID...
-				uint8_t abtInitiate[] = "\x06\x00";
-				size_t szInitiateLen = 2;
-				uint8_t abtSelect[] = { 0x0e, 0x00 };
-				uint8_t abtRx[1];
-				uint8_t* pbtInitData = (uint8_t*)"\x0b";
-				size_t szInitData = 1;
-				// Getting random Chip_ID
-				if ((res = pn53x_initiator_transceive_bytes(pnd, abtInitiate, szInitiateLen, abtRx, sizeof(abtRx), timeout)) < 0) {
-					if ((res == NFC_ERFTRANS) && (CHIP_DATA(pnd)->last_status_byte == 0x01)) { // Chip timeout
-						continue;
-					}
-					else
-						return res;
-				}
-				abtSelect[1] = abtRx[0];
-				if ((res = pn53x_initiator_transceive_bytes(pnd, abtSelect, sizeof(abtSelect), abtRx, sizeof(abtRx), timeout)) < 0) {
-					return res;
-				}
-				szTargetsData = (size_t)res;
-				if ((res = pn53x_initiator_transceive_bytes(pnd, pbtInitData, szInitData, abtTargetsData, sizeof(abtTargetsData), timeout)) < 0) {
-					if ((res == NFC_ERFTRANS) && (CHIP_DATA(pnd)->last_status_byte == 0x01)) { // Chip timeout
-						continue;
-					}
-					else
-						return res;
-				}
-				szTargetsData = (size_t)res;
-			}
-			else if (nm.nmt == NMT_ISO14443B2CT) {
-				// Some work to do before getting the UID...
-				const uint8_t abtReqt[] = { 0x10 };
-				uint8_t* pbtInitData = (uint8_t*)"\x9F\xFF\xFF";
-				size_t szInitData = 3;
-				// Getting product code / fab code & store it in output buffer after the serial nr we'll obtain later
-				if ((res = pn53x_initiator_transceive_bytes(pnd, abtReqt, sizeof(abtReqt), abtTargetsData + 2, sizeof(abtTargetsData) - 2, timeout)) < 0) {
-					if ((res == NFC_ERFTRANS) && (CHIP_DATA(pnd)->last_status_byte == 0x01)) { // Chip timeout
-						continue;
-					}
-					else
-						return res;
-				}
-				szTargetsData = (size_t)res;
-				if ((res = pn53x_initiator_transceive_bytes(pnd, pbtInitData, szInitData, abtTargetsData, sizeof(abtTargetsData), timeout)) < 0) {
-					if ((res == NFC_ERFTRANS) && (CHIP_DATA(pnd)->last_status_byte == 0x01)) { // Chip timeout
-						continue;
-					}
-					else
-						return res;
-				}
-				szTargetsData = (size_t)res;
-				if (szTargetsData != 2)
-					return 0; // Target is not ISO14443B2CT
-				uint8_t abtRead[] = { 0xC4 }; // Reading UID_MSB (Read address 4)
-				if ((res = pn53x_initiator_transceive_bytes(pnd, abtRead, sizeof(abtRead), abtTargetsData + 4, sizeof(abtTargetsData) - 4, timeout)) < 0) {
-					return res;
-				}
-				szTargetsData = 6; // u16 UID_LSB, u8 prod code, u8 fab code, u16 UID_MSB
-			}
-			else if (nm.nmt == NMT_ISO14443BICLASS) {
-				pn53x_initiator_init_iclass_modulation(pnd);
-				//
-				// Some work to do before getting the UID...
-				// send ICLASS_ACTIVATE_ALL command - will get timeout as we don't expect response
-				uint8_t abtReqt[] = { 0x0a }; // iClass ACTIVATE_ALL
-				uint8_t abtAnticol[11];
-				if (pn53x_initiator_transceive_bytes(pnd, abtReqt, sizeof(abtReqt), NULL, 0, timeout) < 0) {
-					log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "got expected timeout on iClass activate all");
-					//if ((res == NFC_ERFTRANS) && (CHIP_DATA(pnd)->last_status_byte == 0x01)) { // Chip timeout
-					//  continue;
-					//} else
-					//  return res;
-				}
-				// do select - returned anticol contains 'handle' for tag if present
-				abtReqt[0] = 0x0c; // iClass SELECT
-				abtAnticol[0] = 0x81; // iClass ANTICOL
-				if ((res = pn53x_initiator_transceive_bytes(pnd, abtReqt, sizeof(abtReqt), &abtAnticol[1], sizeof(abtAnticol) - 1, timeout)) < 0) {
-					log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "timeout on iClass anticol");
-					return res;
-				}
-				// write back anticol handle to get UID
-				if ((res = pn53x_initiator_transceive_bytes(pnd, abtAnticol, 9, abtTargetsData, 10, timeout)) < 0) {
-					log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "timeout on iClass get UID");
-					return res;
-				}
-				log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "iClass raw UID: %02x %02x %02x %02x %02x %02x %02x %02x", abtTargetsData[0], abtTargetsData[1], abtTargetsData[2], abtTargetsData[3], abtTargetsData[4], abtTargetsData[5], abtTargetsData[6], abtTargetsData[7]);
-				szTargetsData = 8;
-				nttmp.nm = nm;
-				if ((res = pn53x_decode_target_data(abtTargetsData, szTargetsData, CHIP_DATA(pnd)->type, nm.nmt, &(nttmp.nti))) < 0) {
-					return res;
-				}
-			}
-			else {
+  if (nm.nmt == NMT_ISO14443BI || nm.nmt == NMT_ISO14443B2SR || nm.nmt == NMT_ISO14443B2CT || nm.nmt == NMT_ISO14443BICLASS) {
+    if (CHIP_DATA(pnd)->type == RCS360) {
+      // TODO add support for RC-S360, at the moment it refuses to send raw frames without a first select
+      pnd->last_error = NFC_ENOTIMPL;
+      return pnd->last_error;
+    }
+    // No native support in InListPassiveTarget so we do discovery by hand
+    if ((res = nfc_device_set_property_bool(pnd, NP_FORCE_ISO14443_B, true)) < 0) {
+      return res;
+    }
+    if ((res = nfc_device_set_property_bool(pnd, NP_FORCE_SPEED_106, true)) < 0) {
+      return res;
+    }
+    if ((res = nfc_device_set_property_bool(pnd, NP_HANDLE_CRC, true)) < 0) {
+      return res;
+    }
+    if ((res = nfc_device_set_property_bool(pnd, NP_EASY_FRAMING, false)) < 0) {
+      return res;
+    }
+    bool found = false;
+    do {
+      if (nm.nmt == NMT_ISO14443B2SR) {
+        // Some work to do before getting the UID...
+        uint8_t abtInitiate[] = "\x06\x00";
+        size_t szInitiateLen = 2;
+        uint8_t abtSelect[] = { 0x0e, 0x00 };
+        uint8_t abtRx[1];
+        uint8_t *pbtInitData = (uint8_t *) "\x0b";
+        size_t szInitData = 1;
+        
+        if ((res = pn53x_write_register(pnd, PN53X_REG_CIU_TxAuto, 0xef, 0x07)) < 0) // Initial RFOn, Tx2 RFAutoEn, Tx1 RFAutoEn
+          return res;
+        if ((res = pn53x_write_register(pnd, PN53X_REG_CIU_CWGsP, 0x3f, 0x3f)) < 0) // Conductance of the P-Driver
+          return res;
+        if ((res = pn53x_write_register(pnd, PN53X_REG_CIU_ModGsP, 0x3f, 0x12)) < 0) // Driver P-output conductance for the time of modulation
+          return res;
+        
+        // Getting random Chip_ID
+        if ((res = pn53x_initiator_transceive_bytes(pnd, abtInitiate, szInitiateLen, abtRx, sizeof(abtRx), timeout)) < 0) {
+          if ((res == NFC_ERFTRANS) && (CHIP_DATA(pnd)->last_status_byte == 0x01)) { // Chip timeout
+            continue;
+          } else
+            return res;
+        }
+        abtSelect[1] = abtRx[0];
+        if ((res = pn53x_initiator_transceive_bytes(pnd, abtSelect, sizeof(abtSelect), abtRx, sizeof(abtRx), timeout)) < 0) {
+          return res;
+        }
+        szTargetsData = (size_t)res;
+        if ((res = pn53x_initiator_transceive_bytes(pnd, pbtInitData, szInitData, abtTargetsData, sizeof(abtTargetsData), timeout)) < 0) {
+          if ((res == NFC_ERFTRANS) && (CHIP_DATA(pnd)->last_status_byte == 0x01)) { // Chip timeout
+            continue;
+          } else
+            return res;
+        }
+        szTargetsData = (size_t)res;
+      } else if (nm.nmt == NMT_ISO14443B2CT) {
+        // Some work to do before getting the UID...
+        const uint8_t abtReqt[] = { 0x10 };
+        uint8_t *pbtInitData = (uint8_t *) "\x9F\xFF\xFF";
+        size_t szInitData = 3;
+        // Getting product code / fab code & store it in output buffer after the serial nr we'll obtain later
+        if ((res = pn53x_initiator_transceive_bytes(pnd, abtReqt, sizeof(abtReqt), abtTargetsData + 2, sizeof(abtTargetsData) - 2, timeout)) < 0) {
+          if ((res == NFC_ERFTRANS) && (CHIP_DATA(pnd)->last_status_byte == 0x01)) { // Chip timeout
+            continue;
+          } else
+            return res;
+        }
+        szTargetsData = (size_t)res;
+        if ((res = pn53x_initiator_transceive_bytes(pnd, pbtInitData, szInitData, abtTargetsData, sizeof(abtTargetsData), timeout)) < 0) {
+          if ((res == NFC_ERFTRANS) && (CHIP_DATA(pnd)->last_status_byte == 0x01)) { // Chip timeout
+            continue;
+          } else
+            return res;
+        }
+        szTargetsData = (size_t)res;
+        if (szTargetsData != 2)
+          return 0; // Target is not ISO14443B2CT
+        uint8_t abtRead[] = { 0xC4 }; // Reading UID_MSB (Read address 4)
+        if ((res = pn53x_initiator_transceive_bytes(pnd, abtRead, sizeof(abtRead), abtTargetsData + 4, sizeof(abtTargetsData) - 4, timeout)) < 0) {
+          return res;
+        }
+        szTargetsData = 6; // u16 UID_LSB, u8 prod code, u8 fab code, u16 UID_MSB
+      } else if (nm.nmt == NMT_ISO14443BICLASS) {
+        pn53x_initiator_init_iclass_modulation(pnd);
+        //
+        // Some work to do before getting the UID...
+        // send ICLASS_ACTIVATE_ALL command - will get timeout as we don't expect response
+        uint8_t abtReqt[] = { 0x0a }; // iClass ACTIVATE_ALL
+        uint8_t abtAnticol[11];
+        if (pn53x_initiator_transceive_bytes(pnd, abtReqt, sizeof(abtReqt), NULL, 0, timeout) < 0) {
+          log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "got expected timeout on iClass activate all");
+          //if ((res == NFC_ERFTRANS) && (CHIP_DATA(pnd)->last_status_byte == 0x01)) { // Chip timeout
+          //  continue;
+          //} else
+          //  return res;
+        }
+        // do select - returned anticol contains 'handle' for tag if present
+        abtReqt[0] = 0x0c; // iClass SELECT
+        abtAnticol[0] = 0x81; // iClass ANTICOL
+        if ((res = pn53x_initiator_transceive_bytes(pnd, abtReqt, sizeof(abtReqt), &abtAnticol[1], sizeof(abtAnticol) - 1, timeout)) < 0) {
+          log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "timeout on iClass anticol");
+          return res;
+        }
+        // write back anticol handle to get UID
+        if ((res = pn53x_initiator_transceive_bytes(pnd, abtAnticol, 9, abtTargetsData, 10, timeout)) < 0) {
+          log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "timeout on iClass get UID");
+          return res;
+        }
+        log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "iClass raw UID: %02x %02x %02x %02x %02x %02x %02x %02x", abtTargetsData[0], abtTargetsData[1], abtTargetsData[2], abtTargetsData[3], abtTargetsData[4], abtTargetsData[5], abtTargetsData[6], abtTargetsData[7]);
+        szTargetsData = 8;
+        nttmp.nm = nm;
+        if ((res = pn53x_decode_target_data(abtTargetsData, szTargetsData, CHIP_DATA(pnd)->type, nm.nmt, &(nttmp.nti))) < 0) {
+          return res;
+        }
+      } else {
 
 				if ((res = pn53x_initiator_transceive_bytes(pnd, pbtInitData, szInitData, abtTargetsData, sizeof(abtTargetsData), timeout)) < 0) {
 					if ((res == NFC_ERFTRANS) && (CHIP_DATA(pnd)->last_status_byte == 0x01)) { // Chip timeout
@@ -1272,33 +1273,33 @@ pn53x_initiator_select_passive_target_ext(struct nfc_device* pnd,
 				szTargetsData = (size_t)res;
 			}
 
-			nttmp.nm = nm;
-			if ((res = pn53x_decode_target_data(abtTargetsData, szTargetsData, CHIP_DATA(pnd)->type, nm.nmt, &(nttmp.nti))) < 0) {
-				return res;
-			}
-			if (nm.nmt == NMT_ISO14443BI) {
-				// Select tag
-				uint8_t abtAttrib[6];
-				memcpy(abtAttrib, abtTargetsData, sizeof(abtAttrib));
-				abtAttrib[1] = 0x0f; // ATTRIB
-				if ((res = pn53x_initiator_transceive_bytes(pnd, abtAttrib, sizeof(abtAttrib), NULL, 0, timeout)) < 0) {
-					return res;
-				}
-				szTargetsData = (size_t)res;
-			}
-			found = true;
-			break;
-		} while (pnd->bInfiniteSelect);
-		if (!found)
-			return 0;
-	}
-	else if (nm.nmt == NMT_BARCODE) {
-		if (CHIP_DATA(pnd)->type == RCS360) {
-			// TODO add support for RC-S360, at the moment it refuses to send raw frames without a first select
-			pnd->last_error = NFC_ENOTIMPL;
-			return pnd->last_error;
-		}
-		// No native support in InListPassiveTarget so we do discovery by hand
+      nttmp.nm = nm;
+      if ((res = pn53x_decode_target_data(abtTargetsData, szTargetsData, CHIP_DATA(pnd)->type, nm.nmt, &(nttmp.nti))) < 0) {
+        return res;
+      }
+      if (nm.nmt == NMT_ISO14443BI) {
+        // Select tag
+        uint8_t abtAttrib[6];
+        memcpy(abtAttrib, abtTargetsData, sizeof(abtAttrib));
+        abtAttrib[1] = 0x0f; // ATTRIB
+        if ((res = pn53x_initiator_transceive_bytes(pnd, abtAttrib, sizeof(abtAttrib), NULL, 0, timeout)) < 0) {
+          return res;
+        }
+        szTargetsData = (size_t)res;
+      }
+      found = true;
+      res = 1; // TargetCount to 1 as only one target is supported here
+      break;
+    } while (pnd->bInfiniteSelect);
+    if (! found)
+      return 0;
+  } else if (nm.nmt == NMT_BARCODE) {
+    if (CHIP_DATA(pnd)->type == RCS360) {
+      // TODO add support for RC-S360, at the moment it refuses to send raw frames without a first select
+      pnd->last_error = NFC_ENOTIMPL;
+      return pnd->last_error;
+    }
+    // No native support in InListPassiveTarget so we do discovery by hand
 
 		// We turn RF field off first for a better detection rate but this doesn't work well with ASK LoGO
 		if ((!CHIP_DATA(pnd)->progressive_field) && (res = nfc_device_set_property_bool(pnd, NP_ACTIVATE_FIELD, false)) < 0) {
@@ -1358,29 +1359,29 @@ pn53x_initiator_select_passive_target_ext(struct nfc_device* pnd,
 
 			szTargetsData = (size_t)off / 8;
 
-			// validate CRC
-			uint8_t pbtCrc[2];
-			iso14443a_crc(abtTargetsData, szTargetsData - 2, pbtCrc);
-			if ((pbtCrc[1] != abtTargetsData[szTargetsData - 2]) || (pbtCrc[0] != abtTargetsData[szTargetsData - 1])) {
-				continue;
-			}
-			nttmp.nm = nm;
-			if ((res = pn53x_decode_target_data(abtTargetsData, szTargetsData, CHIP_DATA(pnd)->type, nm.nmt, &(nttmp.nti))) < 0) {
-				return res;
-			}
-			found = true;
-			break;
-		} while (pnd->bInfiniteSelect);
-		if (!found) {
-			return 0;
-		}
-	}
-	else {
-		const pn53x_modulation pm = pn53x_nm_to_pm(nm);
-		if ((PM_UNDEFINED == pm) || (NBR_UNDEFINED == nm.nbr)) {
-			pnd->last_error = NFC_EINVARG;
-			return pnd->last_error;
-		}
+      // validate CRC
+      uint8_t pbtCrc[2];
+      iso14443a_crc(abtTargetsData, szTargetsData - 2, pbtCrc);
+      if ((pbtCrc[1] != abtTargetsData[szTargetsData - 2]) || (pbtCrc[0] != abtTargetsData[szTargetsData - 1])) {
+        continue;
+      }
+      nttmp.nm = nm;
+      if ((res = pn53x_decode_target_data(abtTargetsData, szTargetsData, CHIP_DATA(pnd)->type, nm.nmt, &(nttmp.nti))) < 0) {
+        return res;
+      }
+      found = true;
+      res = 1; // TargetCount to 1 as only one target is supported here
+      break;
+    } while (pnd->bInfiniteSelect);
+    if (! found) {
+      return 0;
+    }
+  } else {
+    const pn53x_modulation pm = pn53x_nm_to_pm(nm);
+    if ((PM_UNDEFINED == pm) || (NBR_UNDEFINED == nm.nbr)) {
+      pnd->last_error = NFC_EINVARG;
+      return pnd->last_error;
+    }
 
 		if ((res = pn53x_InListPassiveTarget(pnd, pm, 1, pbtInitData, szInitData, abtTargetsData, &szTargetsData, timeout)) <= 0)
 			return res;
@@ -1388,28 +1389,29 @@ pn53x_initiator_select_passive_target_ext(struct nfc_device* pnd,
 		if (szTargetsData <= 1) // For Coverity to know szTargetsData is always > 1 if res > 0
 			return 0;
 
-		nttmp.nm = nm;
-		if ((res = pn53x_decode_target_data(abtTargetsData + 1, szTargetsData - 1, CHIP_DATA(pnd)->type, nm.nmt, &(nttmp.nti))) < 0) {
-			return res;
-		}
-		if ((nm.nmt == NMT_ISO14443A) && (nm.nbr != NBR_106)) {
-			uint8_t pncmd_inpsl[4] = { InPSL, 0x01 };
-			pncmd_inpsl[2] = nm.nbr - 1;
-			pncmd_inpsl[3] = nm.nbr - 1;
-			if ((res = pn53x_transceive(pnd, pncmd_inpsl, sizeof(pncmd_inpsl), NULL, 0, 0)) < 0) {
-				return res;
-			}
-		}
-	}
-	if (pn53x_current_target_new(pnd, &nttmp) == NULL) {
-		pnd->last_error = NFC_ESOFT;
-		return pnd->last_error;
-	}
-	// Is a tag info struct available
-	if (pnt) {
-		memcpy(pnt, &nttmp, sizeof(nfc_target));
-	}
-	return abtTargetsData[0];
+    nttmp.nm = nm;
+    if ((res = pn53x_decode_target_data(abtTargetsData + 1, szTargetsData - 1, CHIP_DATA(pnd)->type, nm.nmt, &(nttmp.nti))) < 0) {
+      return res;
+    }
+    if ((nm.nmt == NMT_ISO14443A) && (nm.nbr != NBR_106)) {
+      uint8_t pncmd_inpsl[4] = { InPSL, 0x01 };
+      pncmd_inpsl[2] = nm.nbr - 1;
+      pncmd_inpsl[3] = nm.nbr - 1;
+      if ((res = pn53x_transceive(pnd, pncmd_inpsl, sizeof(pncmd_inpsl), NULL, 0, 0)) < 0) {
+        return res;
+      }
+    }
+    res = abtTargetsData[0]; // TargetCount to abtTargetsData[0] (Tg from InListPassiveTarget answer)
+  }
+  if (pn53x_current_target_new(pnd, &nttmp) == NULL) {
+    pnd->last_error = NFC_ESOFT;
+    return pnd->last_error;
+  }
+  // Is a tag info struct available
+  if (pnt) {
+    memcpy(pnt, &nttmp, sizeof(nfc_target));
+  }
+  return res;
 }
 
 int
