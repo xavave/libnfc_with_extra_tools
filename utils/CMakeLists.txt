@@ -21,7 +21,7 @@ set(LZMA_SEARCH_PATHS
 
 # Utilisez find_library avec les chemins spécifiés
 #find_library(LZMA_LIB NAMES lzma lzma.lib REQUIRED PATHS ${LZMA_SEARCH_PATHS})
-set(LZMA_LIB "${CMAKE_SOURCE_DIR}/contrib/win32/liblzma.lib")
+set(LZMA_LIB "${CMAKE_SOURCE_DIR}/contrib/win32/lzma.lib")
 target_link_libraries(nfcutils PRIVATE ${LZMA_LIB})
 
 # Spécifiez les chemins de recherche pour la bibliothèque LZMA
@@ -33,7 +33,7 @@ set(PTHREAD_SEARCH_PATHS
 
 # Utilisez find_library avec les chemins spécifiés
 #find_library(PTHREAD_LIB NAMES pthread pthreads pthreadVSE3 pthreadVSE3.dll REQUIRED PATHS ${PTHREAD_SEARCH_PATHS})
-set(PTHREAD_LIB "${CMAKE_SOURCE_DIR}/contrib/win32/libpthreadVSE3.lib")
+set(PTHREAD_LIB "${CMAKE_SOURCE_DIR}/contrib/win32/pthreadVSE3.lib")
 target_link_libraries(nfcutils PRIVATE ${PTHREAD_LIB})
 
 # Définir les répertoires de sortie pour les DLL et les fichiers .lib
