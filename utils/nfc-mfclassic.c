@@ -115,7 +115,11 @@ static uint8_t keys[] = {
 static const uint8_t default_key[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 static const uint8_t _default_acl[] = { 0xff, 0x07, 0x80, 0x69 };
 static uint8_t* default_acl = _default_acl;
-static uint8_t* custom_acl = _default_acl;
+// custom_acl is NULL until -a is actually given: do NOT alias it to _default_acl,
+// otherwise writing into custom_acl[] also mutates default_acl and bUseCustomACL
+// (memcmp(custom_acl, default_acl, ...)) can never be true.
+static uint8_t custom_acl_buf[4];
+static uint8_t* custom_acl = NULL;
 static uint8_t* pbtUID;
 static uint8_t* customsector;
 static const uint8_t _tag_uid[4] = { 0x00, 0x00, 0x00, 0x00 };
@@ -446,7 +450,7 @@ static bool write_card(bool write_block_zero)
 	uint32_t uiBlock;
 	bool bFailure = false;
 	uint32_t uiWriteBlocks = 0;
-	bool bUseCustomACL = memcmp(custom_acl, default_acl, sizeof(default_acl)) != 0;
+	bool bUseCustomACL = (custom_acl != NULL);
 	// Block 0 is only concerned if the requested range (-s) includes it
 	const bool bWriteZero = write_block_zero && (uiStartBlock == 0);
 	//Determine if we have to unlock the card
@@ -775,7 +779,9 @@ int main(int argc, const char* argv[])
 			}
 			else
 			{
-				unsigned long int _acl = strtoul(optarg + 1, NULL, 16);
+				// strtoul on the full 8 hex chars (not optarg+1, which skipped the first nibble)
+				unsigned long int _acl = strtoul(optarg, NULL, 16);
+				custom_acl = custom_acl_buf;
 				custom_acl[0] = (_acl & 0xff000000UL) >> 24;
 				custom_acl[1] = (_acl & 0x00ff0000UL) >> 16;
 				custom_acl[2] = (_acl & 0x0000ff00UL) >> 8;
