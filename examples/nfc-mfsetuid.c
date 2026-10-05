@@ -66,6 +66,10 @@
 #define MAX_DEVICE_COUNT 16
 #define MAX_TARGET_COUNT 16
 
+/* Codes de sortie specifiques (en plus de EXIT_SUCCESS=0 / EXIT_FAILURE=1) */
+#define EXIT_NOT_CLASSIC 4
+#define EXIT_NOT_MAGIC   5
+
 static uint8_t abtRx[MAX_FRAME_LEN];
 static int szRxBits;
 static uint8_t abtRawUid[12];
@@ -215,7 +219,7 @@ main(int argc, char* argv[])
 			else
 			{
 				ERR("-i %s is invalid value for intrusive scan.", argv[arg]);
-				print_usage(argv[0]);
+				print_usage(argv);
 				exit(EXIT_FAILURE);
 			}
 		}
@@ -239,23 +243,26 @@ main(int argc, char* argv[])
 		}
 		//to test: write 7 bytes UID
 		else if (strlen(argv[arg]) == 14) {
+			uint8_t uc7ByteUID[7];
 			for (i = 0; i < 7; ++i) {
 				memcpy(tmp, argv[arg] + i * 2, 2);
 				sscanf(tmp, "%02x", &c);
-				abtData[i] = (char)c;
+				uc7ByteUID[i] = (uint8_t)c;
 			}
 			uint8_t uc4ByteUID[4] = { 0x00,0x00,0x00,0x00 };
-			Convert7ByteUIDTo4ByteNUID(abtData, uc4ByteUID);
+			Convert7ByteUIDTo4ByteNUID(uc7ByteUID, uc4ByteUID);
 			printf("7-byte UID = ");
 			for (i = 0; i < 7; i++)
-				printf("%02x", abtData[i]);
-
+				printf("%02x", uc7ByteUID[i]);
 			printf("\t4-byte FNUID = ");
 			for (i = 0; i < 4; i++)
 				printf("%02x", uc4ByteUID[i]);
-
-			abtData[4] = abtData[0] ^ abtData[1] ^ abtData[2] ^ abtData[3];
 			printf("\n");
+			// Option B : on ecrit le FNUID 4 octets dans le bloc 0,
+			// en conservant SAK/ATQA/fabricant par defaut (abtData[5..]).
+			for (i = 0; i < 4; ++i)
+				abtData[i] = uc4ByteUID[i];
+			abtData[4] = abtData[0] ^ abtData[1] ^ abtData[2] ^ abtData[3];
 			iso14443a_crc_append(abtData, 16);
 		}
 		else
@@ -288,7 +295,6 @@ main(int argc, char* argv[])
 	}
 
 	for (i = 0; i < szDeviceFound; i++) {
-		nfc_target ant[MAX_TARGET_COUNT];
 		pnd = nfc_open(context, connstrings[i]);
 		if (pnd == NULL) {
 			printf("Unable to open NFC device: %s\n", connstrings[i]);
@@ -460,30 +466,49 @@ main(int argc, char* argv[])
 	}
 	printf("\n");
 
+	// Garde-fou : SAK sans le bit 0x08 => probablement pas une Mifare Classic
+	// (ex: Ultralight/NTAG, SAK=0x00). Avertissement non bloquant : une carte
+	// 'magic' au bloc 0 corrompu peut avoir un SAK errone et rester reparable.
+	if ((abtSak & 0x08) == 0) {
+		fprintf(stderr, "Warning: SAK=0x%02x: tag probably not a MIFARE Classic (Ultralight/NTAG?).\n", abtSak);
+	}
+
 	// now reset UID
 	iso14443a_crc_append(abtHalt, 2);
 	transmit_bytes(abtHalt, 4);
 
-	if (!transmit_bits(abtUnlock1, 7)) {
-		printf("Warning: Unlock command [1/2]: failed / not acknowledged.\n");
-	}
-	else {
-		if (format) {
-			transmit_bytes(abtWipe, 1);
-			transmit_bytes(abtHalt, 4);
-			transmit_bits(abtUnlock1, 7);
-		}
-
-		if (transmit_bytes(abtUnlock2, 1)) {
-			printf("Card unlocked\n");
-		}
-		else {
-			printf("Warning: Unlock command [2/2]: failed / not acknowledged.\n");
-		}
+	// Unlock [1/2] : backdoor gen1a (0x40, 7 bits). ACK attendu = 0x0a (4 bits).
+	if (!transmit_bits(abtUnlock1, 7) || szRxBits < 4 || (abtRx[0] & 0x0f) != 0x0a) {
+		fprintf(stderr, "Error: Unlock command [1/2] (0x40) failed / not acknowledged.\n");
+		fprintf(stderr, "       Tag does not support the gen1a backdoor: not a UID-changeable 'magic' MIFARE Classic.\n");
+		nfc_close(pnd);
+		nfc_exit(context);
+		exit(EXIT_NOT_MAGIC);
 	}
 
-	transmit_bytes(abtWrite, 4);
-	transmit_bytes(abtData, 18);
+	if (format) {
+		transmit_bytes(abtWipe, 1);
+		transmit_bytes(abtHalt, 4);
+		transmit_bits(abtUnlock1, 7);
+	}
+
+	// Unlock [2/2] : 0x43
+	if (!transmit_bytes(abtUnlock2, 1)) {
+		fprintf(stderr, "Error: Unlock command [2/2] (0x43) failed / not acknowledged.\n");
+		nfc_close(pnd);
+		nfc_exit(context);
+		exit(EXIT_NOT_MAGIC);
+	}
+	printf("Card unlocked\n");
+
+	// Ecriture du bloc 0
+	if (!transmit_bytes(abtWrite, 4) || !transmit_bytes(abtData, 18)) {
+		fprintf(stderr, "Error: writing block 0 failed / not acknowledged.\n");
+		nfc_close(pnd);
+		nfc_exit(context);
+		exit(EXIT_NOT_MAGIC);
+	}
+
 	if (format) {
 		for (i = 3; i < 64; i += 4) {
 			abtWrite[1] = (char)i;
@@ -493,6 +518,7 @@ main(int argc, char* argv[])
 		}
 	}
 
+	printf("UID successfully written.\n");
 	nfc_close(pnd);
 	nfc_exit(context);
 	exit(EXIT_SUCCESS);
