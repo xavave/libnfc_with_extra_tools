@@ -447,20 +447,26 @@ static bool write_card(bool write_block_zero)
 	bool bFailure = false;
 	uint32_t uiWriteBlocks = 0;
 	bool bUseCustomACL = memcmp(custom_acl, default_acl, sizeof(default_acl)) != 0;
+	// Block 0 is only concerned if the requested range (-s) includes it
+	const bool bWriteZero = write_block_zero && (uiStartBlock == 0);
 	//Determine if we have to unlock the card
-	if (write_block_zero) {
+	if (bWriteZero) {
 		unlock_card(true);
 	}
-	int32_t blockCount = uiEndBlock - uiStartBlock;
-	printf("Writing %d blocks |", blockCount + write_block_zero);
+	// Exact number of blocks that will be written (block 0 is skipped unless bWriteZero)
+	int32_t blockCount = uiEndBlock - uiStartBlock + 1;
+	if (!bWriteZero && uiStartBlock == 0) {
+		blockCount--;
+	}
+	printf("Writing %d blocks |", blockCount);
 	// Completely write the card, but skipping block 0 if we don't need to write on it
 	for (uiBlock = uiStartBlock; uiBlock <= uiEndBlock; uiBlock++) {
 		//Determine if we have to write block 0
-		if (!write_block_zero && uiBlock == 0) {
+		if (!bWriteZero && uiBlock == 0) {
 			continue;
 		}
 		// Authenticate everytime we reach the first sector of a new block
-		if (uiBlock == 1 || is_first_block(uiBlock)) {
+		if (uiBlock == uiStartBlock || uiBlock == 1 || is_first_block(uiBlock)) {
 			if (bFailure) {
 				// When a failure occured we need to redo the anti-collision
 
@@ -478,7 +484,7 @@ static bool write_card(bool write_block_zero)
 			// If we are are writing to a chinese magic card, we've already unlocked
 			// If we're writing to a direct write card, we need to authenticate
 			// If we're writing something else, we'll need to authenticate
-			if ((write_block_zero && dWrite) || !write_block_zero) {
+			if ((bWriteZero && dWrite) || !bWriteZero) {
 				if (!authenticate(uiBlock) && !bTolerateFailures) {
 					printf("!\nError: authentication failed for block %02x\n", uiBlock);
 					return false;
@@ -552,7 +558,7 @@ static bool write_card(bool write_block_zero)
 	}
 
 	printf("|\n");
-	printf("Done, %d of %d blocks written.\n", uiWriteBlocks, blockCount + 1);
+	printf("Done, %d of %d blocks written.\n", uiWriteBlocks, blockCount);
 	fflush(stdout);
 
 	return true;
