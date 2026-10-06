@@ -698,7 +698,7 @@ int main(int argc, const char* argv[])
 			uint8_t currentCustomSectorSize = sizeof(customsector) / sizeof(uint8_t);
 			if (currentCustomSectorSize != 48)
 			{
-				printf("current custom sector size: 0x%2x\n", currentCustomSectorSize);
+				printf("current custom sector size: 0x%02x\n", currentCustomSectorSize);
 				ERR("invalid size for custom sector: it should be 48 bytes (4 blocks * 16 bytes)");
 
 				exit(EXIT_FAILURE);
@@ -763,7 +763,7 @@ int main(int argc, const char* argv[])
 				tag_uid[1] = (_uid & 0x00ff0000UL) >> 16;
 				tag_uid[2] = (_uid & 0x0000ff00UL) >> 8;
 				tag_uid[3] = (_uid & 0x000000ffUL);
-				printf("Attempting to use specific UID: 0x%2x 0x%2x 0x%2x 0x%2x\n", tag_uid[0], tag_uid[1], tag_uid[2], tag_uid[3]);
+				printf("Attempting to use specific UID: 0x%02x 0x%02x 0x%02x 0x%02x\n", tag_uid[0], tag_uid[1], tag_uid[2], tag_uid[3]);
 			}
 			else
 			{
@@ -786,7 +786,7 @@ int main(int argc, const char* argv[])
 				custom_acl[1] = (_acl & 0x00ff0000UL) >> 16;
 				custom_acl[2] = (_acl & 0x0000ff00UL) >> 8;
 				custom_acl[3] = (_acl & 0x000000ffUL);
-				printf("Attempting to use specific ACL: 0x%2x 0x%2x 0x%2x 0x%2x\n", custom_acl[0], custom_acl[1], custom_acl[2], custom_acl[3]);
+				printf("Attempting to use specific ACL: 0x%02x 0x%02x 0x%02x 0x%02x\n", custom_acl[0], custom_acl[1], custom_acl[2], custom_acl[3]);
 			}
 			break;
 		case 'h':
